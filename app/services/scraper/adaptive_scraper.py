@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ScrapedData(BaseModel):
@@ -17,6 +17,7 @@ class ScrapedData(BaseModel):
     timestamp: float
     data: List[Dict[str, Any]]
     metadata: Dict[str, Any]
+    raw_html: Optional[str] = Field(default=None, exclude=True)  # Store raw HTML for recovery but exclude from JSON
 
 
 class AdaptiveScraper:
@@ -71,17 +72,29 @@ class AdaptiveScraper:
         self.base_url = base_url
         self.logger = logging.getLogger(__name__)
         self.last_known_hash: Dict[str, str] = {}
+        self.error_count: Dict[str, int] = {}
+        self.max_retries = 3
         
         # Set up session with retry strategy
         self.session = requests.Session()
         self.retry_strategy = Retry(
-            total=3,
+            total=5,  # Increased from 3 to 5
             backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=['GET', 'POST']
         )
         self.session.mount('http://', HTTPAdapter(max_retries=self.retry_strategy))
         self.session.mount('https://', HTTPAdapter(max_retries=self.retry_strategy))
+        
+        # Set reasonable timeout
+        self.timeout = 45  # Increased from default to accommodate slow server responses
+        
+        # User-agent to mimic normal browser
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+        })
     
     def detect_schema_changes(self, url: str, html_content: str) -> bool:
         """
@@ -94,7 +107,12 @@ class AdaptiveScraper:
         Returns:
             bool: True if a change was detected, False otherwise
         """
-        current_hash = hashlib.md5(html_content.encode()).hexdigest()
+        # Extract just the main content div to avoid hash changes due to dynamic elements
+        soup = BeautifulSoup(html_content, 'html.parser')
+        main_content = soup.find('div', {'class': 'main-content'})
+        content_to_hash = (main_content.prettify() if main_content else html_content)
+        
+        current_hash = hashlib.md5(content_to_hash.encode()).hexdigest()
         
         if url not in self.last_known_hash:
             self.last_known_hash[url] = current_hash
@@ -122,7 +140,12 @@ class AdaptiveScraper:
         tables = soup.find_all('table')
         self.logger.info(f'Found {len(tables)} tables on the page')
         
-        # TODO: Implement NLP analysis of column names for dynamic mapping
+        if not tables:
+            # Try finding tables within specific containers
+            containers = soup.find_all(['div', 'section'], {'class': ['content', 'main', 'data', 'table-container']})
+            for container in containers:
+                tables.extend(container.find_all('table'))
+            self.logger.info(f'Found {len(tables)} tables after searching within containers')
     
     def extract_table_data(self, html_content: str) -> List[Dict[str, Any]]:
         """
@@ -137,26 +160,92 @@ class AdaptiveScraper:
         results = []
         soup = BeautifulSoup(html_content, 'html.parser')
         
-        # The main content table is usually in a specific div
-        main_content = soup.find('div', {'class': 'main-content'}) or soup
+        # Try multiple strategies to find tables
+        tables = []
         
-        tables = main_content.find_all('table')
-        for table in tables:
+        # Strategy 1: Find tables in main content
+        main_content = soup.find('div', {'class': 'main-content'})
+        if main_content:
+            tables.extend(main_content.find_all('table'))
+        
+        # Strategy 2: Find tables anywhere
+        if not tables:
+            tables = soup.find_all('table')
+        
+        # Strategy 3: Look for tables within specific containers
+        if not tables:
+            containers = soup.find_all(['div', 'section'], {'class': ['content', 'main', 'data', 'table-container']})
+            for container in containers:
+                tables.extend(container.find_all('table'))
+        
+        self.logger.info(f'Found {len(tables)} tables to extract')
+        
+        # Process each table
+        for table_index, table in enumerate(tables):
+            self.logger.info(f'Processing table {table_index+1}/{len(tables)}')
             table_data = []
             headers = []
             
-            # Extract headers
-            header_row = table.find('tr')
-            if header_row:
-                headers = [th.text.strip() for th in header_row.find_all(['th', 'td'])]
+            # Try to find the header row - sometimes it's marked with th, sometimes with special classes
+            header_candidates = [
+                table.find('tr', {'class': ['header', 'heading', 'title']}),
+                table.find('thead'),
+                table.find('tr')  # Fallback to first row
+            ]
             
-            # Extract data rows
-            data_rows = table.find_all('tr')[1:] if headers else table.find_all('tr')
+            header_row = next((h for h in header_candidates if h is not None), None)
+            
+            # Extract headers
+            if header_row:
+                # Check if within thead
+                if header_row.name == 'thead':
+                    header_cells = header_row.find_all(['th', 'td'])
+                else:
+                    header_cells = header_row.find_all(['th', 'td'])
+                
+                headers = []
+                for i, th in enumerate(header_cells):
+                    header_text = th.text.strip()
+                    if header_text:
+                        # Clean up header text - remove line breaks, duplicate spaces
+                        header_text = ' '.join(header_text.split())
+                        headers.append(header_text)
+                    else:
+                        headers.append(f'column_{i}')
+            
+            # If we have <th> elements in the first row but didn't detect headers, use those
+            if not headers and table.find_all('tr')[0].find('th'):
+                headers = [th.text.strip() or f'column_{i}' for i, th in enumerate(table.find_all('tr')[0].find_all('th'))]
+            
+            # Extract data rows - if we found headers in the first row, skip it
+            start_index = 1 if headers and table.find_all('tr')[0] == header_row else 0
+            data_rows = table.find_all('tr')[start_index:]
+            
             for row in data_rows:
                 cells = row.find_all(['td', 'th'])
-                if cells:
-                    row_data = {headers[i] if i < len(headers) else f'column_{i}': 
-                                cell.text.strip() for i, cell in enumerate(cells)}
+                if not cells:
+                    continue
+                    
+                # If no headers were found, create them based on the number of columns in the first row
+                if not headers and cells:
+                    headers = [f'column_{i}' for i in range(len(cells))]
+                
+                # Create row data
+                row_data = {}
+                for i, cell in enumerate(cells):
+                    if i < len(headers):
+                        header_key = headers[i]
+                        # Skip empty header columns
+                        if not header_key:
+                            continue
+                            
+                        cell_text = cell.text.strip()
+                        # Clean up cell text - remove line breaks, duplicate spaces
+                        cell_text = ' '.join(cell_text.split())
+                        row_data[header_key] = cell_text
+                
+                # Only add rows with data
+                if row_data:
                     table_data.append(row_data)
             
             if table_data:
@@ -177,6 +266,7 @@ class AdaptiveScraper:
             Combined list of data from all years
         """
         all_data = []
+        raw_html_collection = {}
         
         for year in range(start_year, end_year + 1):
             # Add year to URL parameters
@@ -188,24 +278,52 @@ class AdaptiveScraper:
             
             self.logger.info(f'Scraping data for year {year} with URL: {year_url}')
             
-            try:
-                response = self.session.get(year_url, timeout=30)
-                response.raise_for_status()
-                
-                self.detect_schema_changes(year_url, response.text)
-                year_data = self.extract_table_data(response.text)
-                
-                # Add year as metadata
-                for item in year_data:
-                    item['ano'] = year
-                
-                all_data.extend(year_data)
-                
-                # Avoid rate limiting
-                time.sleep(1)
-                
-            except requests.exceptions.RequestException as e:
-                self.logger.error(f'Error scraping {year_url}: {str(e)}')
+            # Track retries for this specific URL
+            retries = 0
+            success = False
+            
+            while retries < self.max_retries and not success:
+                try:
+                    response = self.session.get(year_url, timeout=self.timeout)
+                    response.raise_for_status()
+                    
+                    # Store raw HTML for potential recovery later
+                    raw_html_collection[year] = response.text
+                    
+                    self.detect_schema_changes(year_url, response.text)
+                    year_data = self.extract_table_data(response.text)
+                    
+                    # Add year as metadata
+                    for item in year_data:
+                        item['ano'] = year
+                    
+                    all_data.extend(year_data)
+                    self.error_count[year_url] = 0  # Reset error count on success
+                    success = True
+                    
+                    # Avoid rate limiting
+                    time.sleep(1)
+                    
+                except requests.exceptions.RequestException as e:
+                    retries += 1
+                    wait_time = retries * 2  # Exponential backoff
+                    self.logger.warning(f'Error scraping {year_url}, attempt {retries}/{self.max_retries}: {str(e)}')
+                    self.logger.info(f'Waiting {wait_time} seconds before retrying')
+                    time.sleep(wait_time)
+                    
+                    # Update error tracking
+                    if year_url not in self.error_count:
+                        self.error_count[year_url] = 1
+                    else:
+                        self.error_count[year_url] += 1
+            
+            # Log if all retries failed
+            if not success:
+                self.logger.error(f'Failed to scrape {year_url} after {self.max_retries} attempts')
+        
+        # Store raw HTML in result only if we have limited data
+        if len(all_data) < 10:
+            self.raw_html = raw_html_collection
         
         return all_data
     
@@ -282,7 +400,13 @@ class AdaptiveScraper:
         query_string = '&'.join([f'{k}={v}' for k, v in url_params.items()])
         base_url = f'{self.base_url}?{query_string}'
         
+        # Initialize raw_html attribute
+        self.raw_html = {}
+        
         data = self.scrape_with_pagination(url_params, start_year, end_year)
+        
+        # Get sample page for recovery if needed
+        sample_html = next(iter(self.raw_html.values())) if hasattr(self, 'raw_html') and self.raw_html else None
         
         return ScrapedData(
             source_url=base_url,
@@ -294,11 +418,13 @@ class AdaptiveScraper:
                 'start_year': start_year,
                 'end_year': end_year,
                 'record_count': len(data),
+                'years_with_data': list(set(item.get('ano') for item in data if 'ano' in item)),
                 'filters': {
                     'region': region,
                     'product_type': product_type,
                     'origin': origin,
                     'destination': destination
                 }
-            }
+            },
+            raw_html=sample_html
         )

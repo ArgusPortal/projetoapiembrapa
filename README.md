@@ -30,7 +30,7 @@ Esta API permite o acesso programático aos dados vitivinícolas do portal VitiB
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/seu-usuario/projetoembrapaapi.git
+git clone https://github.com/argusportal/projetoembrapaapi.git
 cd projetoembrapaapi
 ```
 
@@ -196,6 +196,90 @@ curl -X 'GET' \
   --output comercializacao.csv
 ```
 
+## Desafios Técnicos e Soluções Implementadas
+
+Durante o desenvolvimento da API, nos deparamos com diversos desafios técnicos relacionados ao processamento e tratamento dos dados do portal VitiBrasil. Abaixo estão os principais problemas encontrados e as soluções implementadas:
+
+### 1. Extração de Dados do Portal Original
+
+**Desafios:**
+- Estrutura HTML inconsistente entre diferentes seções do portal
+- Alterações frequentes no layout da página e na estrutura das tabelas
+- Ausência de API oficial ou endpoints estruturados
+
+**Soluções:**
+- Implementação do `AdaptiveScraper` com detecção de mudanças de schema usando hash MD5
+- Sistema de retentativas com backoff exponencial para lidar com instabilidades
+- Múltiplas estratégias de extração de tabelas baseadas na estrutura detectada
+
+### 2. Problemas nos Formatos de Exportação
+
+**Desafios CSV:**
+- Duplicação de registros nos dados exportados
+- Presença de colunas genéricas (`column_0`) não identificadas corretamente
+- Metadados (copyright, links de navegação) misturados com dados reais
+- Células vazias excessivas dificultando a análise
+
+**Soluções CSV:**
+- Implementação do método `_clean_data_for_export()` para remover duplicatas
+- Filtro de linhas contendo elementos de navegação ("DOWNLOAD", "TOPO", "« ‹ › »")
+- Remoção automática de colunas de metadados e informações de copyright
+- Limpeza de células vazias e estruturação consistente de dados
+
+### 3. Problemas nos Dados em Formato JSON
+
+**Desafios JSON:**
+- Estrutura inconsistente de chaves e valores
+- Inclusão de elementos HTML dentro dos valores de texto
+- Dados numéricos codificados como strings, dificultando análises
+- Presença de valores especiais (NaN, Infinity) incompatíveis com JSON
+
+**Soluções JSON:**
+- Criação do método `_sanitize_for_json()` com limpeza profunda de estrutura
+- Conversão automática de strings numéricas para tipos numéricos apropriados
+- Tratamento especial para valores NaN, infinito e tipos NumPy
+- Remoção de chaves e valores redundantes ou irrelevantes
+
+### 4. Otimização do Formato Parquet
+
+**Desafios Parquet:**
+- Definição inadequada de tipos de dados comprometendo eficiência de armazenamento
+- Formato de números com vírgula como separador decimal (padrão brasileiro)
+- Esquema inconsistente entre diferentes exportações
+
+**Soluções Parquet:**
+- Implementação da detecção inteligente de tipos numéricos
+- Conversão automática de números em formato europeu (vírgula como separador decimal)
+- Adição da compressão Snappy para reduzir o tamanho dos arquivos
+- Otimização de esquemas para melhor desempenho em consultas analíticas
+
+### 5. Sistema de Resilience e Fallback
+
+**Desafios:**
+- Instabilidade da fonte de dados original
+- Tempos de resposta imprevisíveis do portal VitiBrasil
+- Necessidade de disponibilidade contínua da API mesmo com falhas na fonte
+
+**Soluções:**
+- Implementação do `ResilientCache` com múltiplas camadas (memória, disco)
+- Sistema de fallback para arquivos locais quando a fonte online falha
+- Recuperação inteligente de dados a partir de HTML malformado
+- Validação e sanitização de dados em cada camada do sistema
+
+### 6. Dados Históricos Incompletos
+
+**Desafios:**
+- Dados faltantes em períodos específicos
+- Inconsistências nos nomes dos produtos ao longo do tempo
+- Alterações na metodologia de coleta ao longo dos anos
+
+**Soluções:**
+- Normalização de nomes de produtos e categorias
+- Preenchimento inteligente de períodos faltantes com dado histórico mais próximo
+- Adição de metadados para identificar a fonte e confiabilidade dos dados
+
+Estas soluções implementadas garantem um acesso confiável e estruturado aos dados vitivinícolas, mesmo diante das inconsistências da fonte original, proporcionando uma base sólida para análises e visualizações.
+
 ## Resolução de Problemas
 
 ### Dependências
@@ -225,7 +309,5 @@ Contribuições são bem-vindas! Por favor, sinta-se à vontade para enviar pull
 Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes.
 
 ## Créditos
-
-Desenvolvido como parte de um projeto de integração de dados com a Embrapa Vitivinicultura.
 
 Dados originais disponíveis em: [VitiBrasil - Embrapa](http://vitibrasil.cnpuv.embrapa.br/)
