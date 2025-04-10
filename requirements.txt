@@ -1,0 +1,24 @@
+# Core dependencies
+fastapi==0.103.1
+uvicorn==0.23.2
+pydantic==2.3.0
+email-validator==2.2.0  # Required for Pydantic EmailStr fields
+python-jose==3.3.0
+python-multipart==0.0.6
+bcrypt==4.0.1
+
+# Data processing
+numpy<2.0.0,>=1.24.0  # Pin to numpy 1.x to avoid compatibility issues
+pandas==2.1.0
+pyarrow==14.0.1  # Updated for numpy compatibility
+
+# Cache and metrics
+cachetools==5.3.1
+prometheus-client==0.17.1
+
+# HTTP client
+requests==2.31.0
+beautifulsoup4==4.12.2
+
+# For scraping
+lxml==4.9.3
