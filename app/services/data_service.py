@@ -168,6 +168,19 @@ class ViniDataService:
             destination=destination
         )
         
+        # Tenta detectar a subcategoria automaticamente se ela não foi especificada
+        # e os dados não têm uma subcategoria definida
+        if not subcategory and not result.get("metadata", {}).get("subcategory"):
+            detected_subcategory = self.detect_subcategory_from_data(category, filtered_data)
+            
+            # Se detectamos uma subcategoria, atualiza os metadados
+            if detected_subcategory:
+                logger.info(f"Detectada subcategoria automaticamente: {detected_subcategory} para {category}")
+                if "metadata" in result:
+                    result["metadata"]["subcategory"] = detected_subcategory
+                    # Adiciona um campo para indicar que a subcategoria foi detectada automaticamente
+                    result["metadata"]["subcategory_detection"] = "automatic"
+        
         # Sanitize data for JSON serialization
         sanitized_data = self._sanitize_for_json(filtered_data)
         
@@ -353,6 +366,127 @@ class ViniDataService:
             return mapping[category][product_type.lower()]
         
         return None
+    
+    def detect_subcategory_from_data(self, category: str, data: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        Detecta automaticamente a subcategoria com base no conteúdo dos dados.
+        
+        Args:
+            category: Categoria principal dos dados ('processamento', 'importacao', 'exportacao', etc.)
+            data: Lista de registros para análise
+            
+        Returns:
+            Subcategoria detectada ou None se não foi possível detectar
+        """
+        if not data or len(data) < 2:
+            return None
+            
+        # Para processamento, verificamos o tipo de cultivar
+        if category == "processamento" and category in self.scraper.CULTIVAR_TYPE_MAPPING:
+            # Obtenha todas as cultivares nos dados
+            cultivares = []
+            for item in data:
+                if "Cultivar" in item and item["Cultivar"]:
+                    cultivares.append(item["Cultivar"])
+            
+            if not cultivares:
+                return None
+                
+            # Contadores por tipo
+            counts = {subcategory: 0 for subcategory in self.scraper.CULTIVAR_TYPE_MAPPING[category].keys()}
+            
+            # Conta as ocorrências de cada tipo
+            for cultivar in cultivares:
+                for subcategory, cultivar_list in self.scraper.CULTIVAR_TYPE_MAPPING[category].items():
+                    if any(c.lower() in cultivar.lower() for c in cultivar_list):
+                        counts[subcategory] += 1
+            
+            # Retorna o tipo com mais ocorrências, se houver algum
+            if counts:
+                max_count = max(counts.values())
+                if max_count > 0:
+                    return max(counts.items(), key=lambda x: x[1])[0]
+        
+        # Para exportação e importação, verificamos com base no nome do arquivo de fallback
+        elif category in ["exportacao", "importacao"]:
+            # Vamos verificar pelo padrão de colunas nos dados
+            column_names = []
+            for item in data:
+                column_names.extend(item.keys())
+            
+            column_names = list(set(column_names))  # Remove duplicatas
+            
+            # Verificamos países/destinos que indicam exportação
+            if "Países" in column_names and category == "exportacao":
+                # Tenta identificar por caracteres distintos dos valores
+                # Verifica tipos específicos de produtos nos dados
+                all_text = ""
+                for item in data:
+                    all_text += str(item)
+                
+                # Verifica palavras-chave para vinhos
+                if any(keyword in all_text.lower() for keyword in ["vinho", "vinhos", "cabernet", "merlot", "chardonnay"]):
+                    return "vinhos"
+                
+                # Verifica palavras-chave para espumantes
+                if any(keyword in all_text.lower() for keyword in ["espumante", "espumantes", "champagne", "moscatel"]):
+                    return "espumantes"
+                
+                # Verifica palavras-chave para sucos
+                if any(keyword in all_text.lower() for keyword in ["suco", "sucos", "concentrado"]):
+                    return "sucos"
+                
+                # Verifica palavras-chave para uvas
+                if any(keyword in all_text.lower() for keyword in ["uva", "uvas", "fresca", "frescas", "mesa"]):
+                    return "uvas"
+                
+                # Se não encontrou nenhum padrão específico, verifica o padrão de export. mais comum
+                return "vinhos"  # Fallback para a subcategoria mais comum
+        
+        # Para outros tipos de categoria, podemos implementar lógicas específicas no futuro
+        return None
+    
+    def clean_unnecessary_headers(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Remove cabeçalhos desnecessários e redundantes dos dados.
+        
+        Args:
+            data: Lista de registros para limpar
+            
+        Returns:
+            Lista de registros limpa
+        """
+        if not data:
+            return data
+        
+        cleaned_data = []
+        
+        # Chaves a serem filtradas
+        keys_to_filter = [
+            "Dados da Vitivinicultura Loiva Maria Ribeiro de Mello Carlos Alberto Ely Machado",
+            "Dados da Vitivinicultura",
+        ]
+        
+        # Identificadores de linhas de cabeçalho
+        header_identifiers = [
+            {"Cultivar": "Cultivar", "Quantidade (Kg)": "Quantidade (Kg)"},
+            {"Países": "Países", "Quantidade (Kg)": "Quantidade (Kg)"},
+        ]
+        
+        # Filtra os registros
+        for item in data:
+            # Pula itens que são cabeçalhos redundantes
+            if any(all(item.get(k) == v for k, v in header_id.items()) for header_id in header_identifiers):
+                continue
+            
+            # Remove chaves desnecessárias
+            cleaned_item = {k: v for k, v in item.items() if k not in keys_to_filter}
+            
+            # Adiciona apenas se o item tiver algum conteúdo após a limpeza
+            if cleaned_item:
+                cleaned_data.append(cleaned_item)
+        
+        return cleaned_data
     
     def _load_fallback_data(self, category: str, subcategory: Optional[str] = None) -> Dict[str, Any]:
         """

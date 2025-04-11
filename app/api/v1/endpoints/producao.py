@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Query, Depends, HTTPException, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND, HTTP_429_TOO_MANY_REQUESTS
@@ -38,9 +38,11 @@ async def has_access(credentials: HTTPAuthorizationCredentials = Depends(securit
     },
 )
 async def get_producao(
-    start_year: int = Query(1970, description="Ano inicial", ge=1970, le=2023),
-    end_year: int = Query(2023, description="Ano final", ge=1970, le=2023),
-    produto: Optional[str] = Query(None, description="Filtrar por tipo de produto"),
+    start_year: int = Query(1970, description="Ano inicial", ge=1970, le=2025),
+    end_year: int = Query(2023, description="Ano final", ge=1970, le=2025),
+    subcategoria: Optional[str] = Query(None, description="Subcategoria de produção", 
+                                       enum=["uvas", "vinhos", "sucos", "derivados"]),
+    produto: Optional[str] = Query(None, description="Filtrar por tipo específico de produto"),
     regiao: Optional[str] = Query(None, description="Região geográfica"),
     format: str = Query("json", description="Formato da resposta (json, csv, parquet)"),
     _: bool = Depends(has_access)
@@ -48,17 +50,68 @@ async def get_producao(
     """
     Obtém dados de produção de uvas, vinhos e sucos
     
-    - Suporta filtros por período temporal, região e tipo de produto
-    - Permite exportar em formatos JSON, CSV e Parquet para ML
+    - **uvas**: Produção de uvas para processamento e consumo in natura
+    - **vinhos**: Produção de vinhos finos, de mesa e espumantes
+    - **sucos**: Produção de sucos integrais e concentrados
+    - **derivados**: Produção de outros derivados de uva e vinho
     """
     try:
+        # Obtenha os dados
         result = vini_data_service.get_data(
             category="producao",
             start_year=start_year,
             end_year=end_year,
+            subcategory=subcategoria,
             region=regiao,
             product_type=produto,
         )
+        
+        # Limpe os cabeçalhos desnecessários
+        if result.get("data"):
+            result["data"] = vini_data_service.clean_unnecessary_headers(result["data"])
+            
+            # Se não foi especificada uma subcategoria, mas temos vários tipos de dados,
+            # identifique a subcategoria de cada registro
+            if not subcategoria:
+                # Tente identificar a subcategoria de cada registro com base no produto
+                produto_mapping = {
+                    "uvas": ["uva", "videira", "parreiral", "cultivar", "vitis", "niágara", "itália", "bordô", "cabernet"],
+                    "vinhos": ["vinho", "vinificação", "tinto", "branco", "rosé", "rose", "mesa", "fino"],
+                    "sucos": ["suco", "mosto", "integral", "concentrado", "bebida", "néctar"],
+                    "derivados": ["derivado", "fermentado", "aguardente", "grappa", "bagaceira", "cooler", "filtrado"]
+                }
+                
+                for item in result["data"]:
+                    # Verifica se já tem subcategoria identificada
+                    if "subcategoria" not in item:
+                        # Verifica o texto de produto para identificar a subcategoria
+                        # Procura em diferentes campos que podem conter informação do produto
+                        item_text = ""
+                        for campo in ["Produto", "produto", "Descrição", "Descricao", "descrição", "descricao", "item", "Item", "Nome"]:
+                            if campo in item and item[campo]:
+                                item_text += str(item[campo]).lower() + " "
+                        
+                        # Verifica se o texto do item contém palavras-chave das subcategorias
+                        for subcategoria_nome, palavras_chave in produto_mapping.items():
+                            if any(palavra in item_text for palavra in palavras_chave):
+                                item["subcategoria"] = subcategoria_nome
+                                break
+                        
+                        # Se mesmo assim não identificou, tenta usar a unidade de medida
+                        if "subcategoria" not in item and "Unidade" in item:
+                            unidade = str(item["Unidade"]).lower()
+                            if "kg" in unidade or "ton" in unidade:
+                                item["subcategoria"] = "uvas"
+                            elif "l" in unidade or "litro" in unidade:
+                                item["subcategoria"] = "vinhos"
+                        
+                        # Se mesmo assim não identificou, coloca como uvas (mais comum)
+                        if "subcategoria" not in item:
+                            item["subcategoria"] = "uvas"
+            else:
+                # Adicione a subcategoria em cada registro usando o valor fornecido
+                for item in result["data"]:
+                    item["subcategoria"] = subcategoria
         
         # Handle different output formats
         if format == "csv":

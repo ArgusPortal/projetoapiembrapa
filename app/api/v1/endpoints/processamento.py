@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Query, Depends, HTTPException, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND, HTTP_429_TOO_MANY_REQUESTS
@@ -40,26 +40,70 @@ async def has_access(credentials: HTTPAuthorizationCredentials = Depends(securit
 async def get_processamento(
     start_year: int = Query(1970, description="Ano inicial", ge=1970, le=2025),
     end_year: int = Query(2023, description="Ano final", ge=1970, le=2025),
-    tipo: Optional[str] = Query(None, description="Filtrar por tipo de processamento"),
-    regiao: Optional[str] = Query(None, description="Região geográfica"),
+    subcategoria: Optional[str] = Query(None, description="Subcategoria de processamento", 
+                                        enum=["viniferas", "americanas", "mesa", "semclassificacao"]),
+    tipo_uva: Optional[str] = Query(None, description="Filtrar por tipo específico de uva (ex: Cabernet, Isabel, etc)"),
+    regiao: Optional[str] = Query(None, description="Filtrar por região geográfica"),
     format: str = Query("json", description="Formato da resposta (json, csv, parquet)"),
     _: bool = Depends(has_access)
 ):
     """
     Obtém dados sobre processamento industrial de uvas e vinhos
     
-    - Dados sobre quantidade processada por tipo
-    - Processamento por região
-    - Controle de qualidade
+    - **viniferas**: Processamento de uvas viníferas (ex: Cabernet Sauvignon, Merlot, Chardonnay)
+    - **americanas**: Processamento de uvas americanas e híbridas (ex: Isabel, Bordô, Concord)
+    - **mesa**: Processamento de uvas de mesa (ex: Itália, Niágara, Rubi)
+    - **semclassificacao**: Processamento de uvas sem classificação específica
     """
     try:
+        # Passamos a subcategoria diretamente, incluindo "semclassificacao"
+        # para que o serviço de dados possa utilizar o arquivo de fallback correto
+        
+        # Obtenha os dados
         result = vini_data_service.get_data(
             category="processamento",
             start_year=start_year,
             end_year=end_year,
+            subcategory=subcategoria,  # Passamos a subcategoria diretamente
             region=regiao,
-            product_type=tipo,
+            product_type=tipo_uva,
         )
+        
+        # Limpe os cabeçalhos desnecessários
+        if result.get("data"):
+            result["data"] = vini_data_service.clean_unnecessary_headers(result["data"])
+            
+            # Definição das palavras-chave para identificação de subcategorias
+            cultivar_mapping = {
+                "viniferas": ["cabernet", "merlot", "chardonnay", "tannat", "pinot", "sauvignon", "syrah", "viognier", "malbec"],
+                "americanas": ["isabel", "bordô", "bordo", "niágara", "niagara", "concord", "jacquez", "herbemont", "seibel"],
+                "mesa": ["italia", "itália", "rubi", "benitaka", "red globe", "thompson"]
+            }
+            
+            # Aplicamos a classificação apenas se não tivermos uma subcategoria específica
+            # ou se precisamos adicionar metadados de subcategoria aos resultados
+            if not subcategoria or subcategoria != "semclassificacao":
+                for item in result["data"]:
+                    # Se não tem subcategoria, vamos identificar
+                    if "subcategoria" not in item:
+                        # Verifica cultivar para identificar a subcategoria
+                        cultivar = item.get("Cultivar", "").lower() if "Cultivar" in item else ""
+                        is_classified = False
+                        
+                        if cultivar:
+                            for subcategoria_nome, palavras_chave in cultivar_mapping.items():
+                                if any(palavra in cultivar for palavra in palavras_chave):
+                                    item["subcategoria"] = subcategoria_nome
+                                    is_classified = True
+                                    break
+                        
+                        # Se não identificou por palavras chave, coloca como sem classificação
+                        if not is_classified:
+                            item["subcategoria"] = "semclassificacao"
+                    
+                    # Se estamos filtrando por uma subcategoria específica diferente de semclassificacao
+                    if subcategoria and subcategoria != "semclassificacao":
+                        item["subcategoria"] = subcategoria
         
         # Handle different output formats
         if format == "csv":

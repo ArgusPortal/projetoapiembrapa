@@ -77,8 +77,7 @@ def test_fallback_hierarchy():
     
     logger.info(f"Data source: {result.get('data_source', 'unknown')}")
     logger.info(f"From cache: {result.get('from_cache', False)}")
-    logger.info(f"Fallback used: {result.get('fallback_used', False)}")
-    logger.info(f"Record count: {len(result.get('data', []))}")
+    logger.info(f"Total records: {result.get('total_records', 0)}")
     
     # Print sample of the results
     if result.get("data"):
@@ -112,48 +111,58 @@ def test_subcategory_fallback_files():
     results = {}
     success_count = 0
     
-    # Run tests for each combination
-    for category, subcategory, expected_min_records in test_cases:
-        logger.info(f"Testing {category}/{subcategory}...")
-        
-        # Force fallback by using an unreachable URL for the scraper
-        original_url = vini_data_service.scraper.base_url
-        vini_data_service.scraper.base_url = "http://non-existent-url.local/"
-        
-        try:
-            # Get data with the specified category and subcategory
-            result = vini_data_service.get_data(
-                category=category,
-                subcategory=subcategory,
-                start_year=1970,
-                end_year=2022
-            )
+    # Temporarily modify the scraper configuration to avoid long timeouts
+    original_url = vini_data_service.scraper.base_url
+    original_max_retries = vini_data_service.scraper.max_retries
+    original_timeout = vini_data_service.scraper.timeout
+    
+    # Speed up tests by reducing retries and timeout
+    vini_data_service.scraper.base_url = "http://non-existent-url.local/"
+    vini_data_service.scraper.max_retries = 1  # Only 1 retry instead of 3
+    vini_data_service.scraper.timeout = 1  # Quick timeout
+    
+    try:
+        # Run tests for each combination
+        for category, subcategory, expected_min_records in test_cases:
+            logger.info(f"Testing {category}/{subcategory}...")
             
-            # Check if data was retrieved
-            record_count = len(result.get("data", []))
-            success = record_count >= expected_min_records
-            
-            # Store test result
-            results[f"{category}/{subcategory}"] = {
-                "success": success,
-                "record_count": record_count,
-                "expected_min_records": expected_min_records,
-                "source": result.get("data_source"),
-                "sample": result.get("data", [])[:2] if result.get("data") else None
-            }
-            
-            if success:
-                success_count += 1
-                logger.info(f"✓ {category}/{subcategory}: {record_count} records (expected min: {expected_min_records})")
-            else:
-                logger.error(f"✗ {category}/{subcategory}: {record_count} records (expected min: {expected_min_records})")
+            try:
+                # Get data with the specified category and subcategory
+                result = vini_data_service.get_data(
+                    category=category,
+                    subcategory=subcategory,
+                    start_year=2020,  # Use a narrower year range to speed up tests
+                    end_year=2022
+                )
                 
-        except Exception as e:
-            logger.error(f"Error testing {category}/{subcategory}: {str(e)}")
-            results[f"{category}/{subcategory}"] = {"success": False, "error": str(e)}
-        finally:
-            # Restore original URL
-            vini_data_service.scraper.base_url = original_url
+                # Check if data was retrieved
+                record_count = len(result.get("data", []))
+                success = record_count >= expected_min_records
+                
+                # Store test result
+                results[f"{category}/{subcategory}"] = {
+                    "success": success,
+                    "record_count": record_count,
+                    "expected_min_records": expected_min_records,
+                    "source": result.get("data_source"),
+                    "sample": result.get("data", [])[:2] if result.get("data") else None
+                }
+                
+                if success:
+                    success_count += 1
+                    logger.info(f"✓ {category}/{subcategory}: {record_count} records (expected min: {expected_min_records})")
+                else:
+                    logger.error(f"✗ {category}/{subcategory}: {record_count} records (expected min: {expected_min_records})")
+                    
+            except Exception as e:
+                logger.error(f"Error testing {category}/{subcategory}: {str(e)}")
+                results[f"{category}/{subcategory}"] = {"success": False, "error": str(e)}
+                
+    finally:
+        # Restore original configuration
+        vini_data_service.scraper.base_url = original_url
+        vini_data_service.scraper.max_retries = original_max_retries
+        vini_data_service.scraper.timeout = original_timeout
     
     # Print summary
     logger.info("\n--- SUBCATEGORY FALLBACK TEST RESULTS ---")
@@ -258,6 +267,129 @@ def test_regional_number_format():
     return success
 
 
+def test_auto_subcategory_detection():
+    """Testa a detecção automática de subcategorias baseada no conteúdo dos dados"""
+    logger.info("Testando a detecção automática de subcategorias...")
+    
+    # Dados de teste com cultivares viníferas
+    test_data = [
+        {
+            "Cultivar": "Alicante Bouschet",
+            "Quantidade (Kg)": None,
+            "ano": 2022
+        },
+        {
+            "Cultivar": "Ancelota",
+            "Quantidade (Kg)": None,
+            "ano": 2022
+        },
+        {
+            "Cultivar": "Cabernet Sauvignon",
+            "Quantidade (Kg)": None,
+            "ano": 2022
+        },
+        {
+            "Cultivar": "Merlot",
+            "Quantidade (Kg)": "35.881.118",
+            "ano": 2023
+        }
+    ]
+    
+    # Teste de detecção para cultivares viníferas
+    detected_subcategory = vini_data_service.detect_subcategory_from_data("processamento", test_data)
+    logger.info(f"Subcategoria detectada para viníferas: {detected_subcategory}")
+    
+    success_viniferas = detected_subcategory == "viniferas"
+    if success_viniferas:
+        logger.info("✓ Detecção de viníferas bem-sucedida")
+    else:
+        logger.error(f"✗ Falha na detecção de viníferas: {detected_subcategory}")
+    
+    # Dados de teste com cultivares americanas
+    test_data_americanas = [
+        {
+            "Cultivar": "Isabel",
+            "Quantidade (Kg)": "1234",
+            "ano": 2022
+        },
+        {
+            "Cultivar": "Bordô",
+            "Quantidade (Kg)": "5678",
+            "ano": 2022
+        },
+        {
+            "Cultivar": "Niagara",
+            "Quantidade (Kg)": "9012",
+            "ano": 2023
+        }
+    ]
+    
+    # Teste de detecção para cultivares americanas
+    detected_subcategory = vini_data_service.detect_subcategory_from_data("processamento", test_data_americanas)
+    logger.info(f"Subcategoria detectada para americanas: {detected_subcategory}")
+    
+    success_americanas = detected_subcategory == "americanas"
+    if success_americanas:
+        logger.info("✓ Detecção de americanas bem-sucedida")
+    else:
+        logger.error(f"✗ Falha na detecção de americanas: {detected_subcategory}")
+    
+    # Dados de teste com cultivares de mesa
+    test_data_mesa = [
+        {
+            "Cultivar": "Italia",
+            "Quantidade (Kg)": "1234",
+            "ano": 2022
+        },
+        {
+            "Cultivar": "Rubi",
+            "Quantidade (Kg)": "5678",
+            "ano": 2022
+        },
+        {
+            "Cultivar": "Crimson",
+            "Quantidade (Kg)": "9012",
+            "ano": 2023
+        }
+    ]
+    
+    # Teste de detecção para cultivares de mesa
+    detected_subcategory = vini_data_service.detect_subcategory_from_data("processamento", test_data_mesa)
+    logger.info(f"Subcategoria detectada para mesa: {detected_subcategory}")
+    
+    success_mesa = detected_subcategory == "mesa"
+    if success_mesa:
+        logger.info("✓ Detecção de mesa bem-sucedida")
+    else:
+        logger.error(f"✗ Falha na detecção de mesa: {detected_subcategory}")
+    
+    # Teste de combinação (retorna a categoria com mais ocorrências)
+    test_data_mixed = [
+        {"Cultivar": "Cabernet Sauvignon", "Quantidade (Kg)": "1000", "ano": 2022},
+        {"Cultivar": "Cabernet Sauvignon", "Quantidade (Kg)": "2000", "ano": 2023},
+        {"Cultivar": "Isabel", "Quantidade (Kg)": "3000", "ano": 2022},
+        {"Cultivar": "Itália", "Quantidade (Kg)": "4000", "ano": 2023}
+    ]
+    
+    detected_subcategory = vini_data_service.detect_subcategory_from_data("processamento", test_data_mixed)
+    logger.info(f"Subcategoria detectada para dados mistos: {detected_subcategory}")
+    
+    # Deve detectar viníferas (2 ocorrências vs 1 de americanas e 1 de mesa)
+    success_mixed = detected_subcategory == "viniferas"
+    if success_mixed:
+        logger.info("✓ Detecção de categoria predominante bem-sucedida")
+    else:
+        logger.error(f"✗ Falha na detecção de categoria predominante: {detected_subcategory}")
+    
+    return {
+        "success": success_viniferas and success_americanas and success_mesa and success_mixed,
+        "viniferas_detection": success_viniferas,
+        "americanas_detection": success_americanas,
+        "mesa_detection": success_mesa,
+        "mixed_detection": success_mixed
+    }
+
+
 def create_sample_html_file():
     """Create a sample HTML file for testing if it doesn't exist"""
     file_path = "tests/sample_raw_html.html"
@@ -323,7 +455,8 @@ def run_all_tests():
         "subcategory_fallback": bool(test_subcategory_fallback_files()),
         "csv_format_handling": test_csv_format_handling().get("success", False),
         "dash_string_handling": test_dash_string_handling(),
-        "regional_number_format": test_regional_number_format()
+        "regional_number_format": test_regional_number_format(),
+        "auto_subcategory_detection": test_auto_subcategory_detection().get("success", False)
     }
     
     # Print summary

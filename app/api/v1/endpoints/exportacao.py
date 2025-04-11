@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Query, Depends, HTTPException, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN, HTTP_404_NOT_FOUND, HTTP_429_TOO_MANY_REQUESTS
@@ -40,27 +40,81 @@ async def has_access(credentials: HTTPAuthorizationCredentials = Depends(securit
 async def get_exportacao(
     start_year: int = Query(1970, description="Ano inicial", ge=1970, le=2025),
     end_year: int = Query(2023, description="Ano final", ge=1970, le=2025),
-    produto: Optional[str] = Query(None, description="Tipo de produto (vinhos_mesa, espumantes, uvas_frescas, sucos)"),
-    destino: Optional[str] = Query(None, description="País/região de destino"),
+    subcategoria: Optional[str] = Query(None, description="Subcategoria de exportação", 
+                                       enum=["vinhos", "espumantes", "sucos", "uvas"]),
+    produto: Optional[str] = Query(None, description="Tipo específico de produto dentro da subcategoria"),
+    destino: Optional[str] = Query(None, description="País ou região de destino"),
     format: str = Query("json", description="Formato da resposta (json, csv, parquet)"),
     _: bool = Depends(has_access)
 ):
     """
     Obtém dados de exportações de vinhos e derivados
     
-    - Vinhos de mesa
-    - Espumantes
-    - Uvas frescas
-    - Sucos
+    - **vinhos**: Exportação de vinhos de mesa, finos e de mesa
+    - **espumantes**: Exportação de vinhos espumantes e frisantes
+    - **sucos**: Exportação de sucos de uva e derivados
+    - **uvas**: Exportação de uvas frescas
     """
     try:
+        # Obtenha os dados
         result = vini_data_service.get_data(
             category="exportacao",
             start_year=start_year,
             end_year=end_year,
+            subcategory=subcategoria,
             product_type=produto,
             destination=destino,
         )
+        
+        # Limpe os cabeçalhos desnecessários
+        if result.get("data"):
+            result["data"] = vini_data_service.clean_unnecessary_headers(result["data"])
+            
+            # Se não foi especificada uma subcategoria, mas temos vários tipos de dados,
+            # identifique a subcategoria de cada registro
+            if not subcategoria:
+                # Tente identificar a subcategoria de cada registro com base no produto
+                produto_mapping = {
+                    "vinhos": ["vinho", "cabernet", "merlot", "chardonnay", "vinhos de mesa", "vinho fino", "tinto", "branco"],
+                    "espumantes": ["espumante", "champagne", "moscatel", "frisante", "prosecco", "brut"],
+                    "sucos": ["suco", "néctar", "bebida", "concentrado", "integral"],
+                    "uvas": ["uva", "fresca", "mesa", "in natura", "niágara", "itália"]
+                }
+                
+                for item in result["data"]:
+                    # Verifica se já tem subcategoria identificada
+                    if "subcategoria" not in item:
+                        # Verifica o texto de produto para identificar a subcategoria
+                        # Procura em diferentes campos que podem conter informação do produto
+                        item_text = ""
+                        for campo in ["Produto", "produto", "Descrição", "Descricao", "descrição", "descricao", "item"]:
+                            if campo in item and item[campo]:
+                                item_text += str(item[campo]).lower() + " "
+                        
+                        # Verifica se o texto do item contém palavras-chave das subcategorias
+                        for subcategoria_nome, palavras_chave in produto_mapping.items():
+                            if any(palavra in item_text for palavra in palavras_chave):
+                                item["subcategoria"] = subcategoria_nome
+                                break
+                        
+                        # Se ainda não identificou a subcategoria, verifica se é um país conhecido por importar um tipo específico
+                        if "subcategoria" not in item and ("País" in item or "Pais" in item or "país" in item or "pais" in item):
+                            pais = str(item.get("País", item.get("Pais", item.get("país", item.get("pais", ""))))).lower()
+                            
+                            # Países mais conhecidos por importar vinhos brasileiros
+                            if pais in ["eua", "estados unidos", "paraguai", "reino unido", "russia", "japão", "japao", "china"]:
+                                item["subcategoria"] = "vinhos"
+                            # Países mais conhecidos por importar sucos brasileiros
+                            elif pais in ["japão", "japao", "estados unidos", "eua"]:
+                                item["subcategoria"] = "sucos"
+                        
+                        # Se mesmo assim não identificou, coloca como a mais comum (vinhos)
+                        if "subcategoria" not in item:
+                            item["subcategoria"] = "vinhos"
+            else:
+                # Adicione a subcategoria em cada registro usando o valor fornecido
+                for item in result["data"]:
+                    item["subcategoria"] = subcategoria
         
         # Handle different output formats
         if format == "csv":

@@ -21,54 +21,117 @@ class ScrapedData(BaseModel):
 
 
 class AdaptiveScraper:
-    """
-    Scraper that can adapt to changes in HTML structure
-    and extract data from VitiBrasil portal
-    """
+    """Adaptive web scraper for VitiViniBrasil data"""
     
-    # VitiBrasil API category mappings
+    # Base URL for the website
+    BASE_URL = "http://vitibrasil.cnpuv.embrapa.br/index.php"
+    
+    # Category mappings (URL parameters)
     CATEGORY_MAPPING = {
-        'producao': 'opt_02',
-        'processamento': 'opt_03',
-        'comercializacao': 'opt_04',
-        'importacao': 'opt_05',
-        'exportacao': 'opt_06',
+        "producao": "opt_02",
+        "processamento": "opt_03",
+        "comercializacao": "opt_04",
+        "importacao": "opt_05",
+        "exportacao": "opt_06",
     }
     
     # Subcategory mappings for each category
     SUBCATEGORY_MAPPING = {
-        'producao': {
-            'viniferas': 'subopt_01',  # Uvas viníferas processadas
-            'americanas_hibridas': 'subopt_02',  # Uvas americanas e híbridas
-            'vinhos_mesa': 'subopt_03',  # Produção de vinhos de mesa
-            'sucos': 'subopt_04',  # Produção de sucos
+        "processamento": {
+            "viniferas": "subopt_01",
+            "americanas": "subopt_02",
+            "mesa": "subopt_03",
+            "semclassificacao": "subopt_04"
         },
-        'processamento': {
-            'por_tipo': 'subopt_01',  # Quantidade processada por tipo
-            'por_regiao': 'subopt_02',  # Processamento por região
-            'controle_qualidade': 'subopt_03',  # Controle de qualidade
+        "importacao": {
+            "vinhos": "subopt_01",
+            "espumantes": "subopt_02",
+            "sucos": "subopt_05",
+            "passas": "subopt_06",
+            "frescas": "subopt_07"
         },
-        'comercializacao': {
-            'varejo': 'subopt_01',  # Varejo tradicional
-            'grandes_redes': 'subopt_02',  # Grandes redes
-            'exportacao_indireta': 'subopt_03',  # Exportação indireta
-        },
-        'importacao': {
-            'vinhos_finos': 'subopt_01',  # Vinhos finos
-            'espumantes': 'subopt_02',  # Espumantes
-            'uvas_frescas': 'subopt_03',  # Uvas frescas
-            'uvas_passas': 'subopt_04',  # Uvas passas
-            'sucos': 'subopt_05',  # Sucos
-        },
-        'exportacao': {
-            'vinhos_mesa': 'subopt_01',  # Vinhos de mesa
-            'espumantes': 'subopt_02',  # Espumantes
-            'uvas_frescas': 'subopt_03',  # Uvas frescas
-            'sucos': 'subopt_04',  # Sucos
+        "exportacao": {
+            "vinhos": "subopt_01",
+            "espumantes": "subopt_02",
+            "sucos": "subopt_04",
+            "uvas": "subopt_05"
         }
     }
     
-    def __init__(self, base_url: str = 'http://vitibrasil.cnpuv.embrapa.br/index.php'):
+    # Cultivar type mapping to help auto-detect subcategories for processamento
+    CULTIVAR_TYPE_MAPPING = {
+        "processamento": {
+            "viniferas": [
+                "Alicante Bouschet", "Ancelota", "Aramon", "Alfrocheiro", "Ancellotta",
+                "Barbera", "Bonarda", "Cabernet Franc", "Cabernet Sauvignon", "Caladoc",
+                "Carmenère", "Castelão", "Corvina", "Dornfelder", "Gamay Noir", 
+                "Kanthus", "Magliocco", "Malbec", "Marselan", "Merlot", "Moscato Bailey", 
+                "Moscato Preto", "Mourvèdre", "Muscat Noir", "Nebbiolo", "Petit Verdot", 
+                "Pinot Meunier", "Pinot Noir", "Pinotage", "Primitivo", "Rebo", 
+                "Ruby Cabernet", "Sangiovese", "Syrah", "Tannat", "Tempranillo", 
+                "Teroldego", "Touriga Franca", "Touriga Nacional", "Trebbiano", "Trincadeira",
+                "Viognier", "Cabernet", "Sauvignon", "Moscato", "Chardonnay",
+                "Riesling", "Sauvignon Blanc", "Gewürztraminer", "Semillon", "Chenin Blanc"
+            ],
+            "americanas": [
+                "Isabel", "Concord", "Bordô", "Niagara", "Jacquez", "Herbemont", 
+                "Seibel", "BRS Magna", "BRS Violeta", "BRS Rúbea", "BRS Cora",
+                "Seyve Villard", "Martha", "Cunningham", "Goethe"
+            ],
+            "mesa": [
+                "Italia", "Rubi", "Benitaka", "Red Globe", "Niagara Rosada", 
+                "Itália", "Crimson", "Thompson", "Perlette", "BRS Vitória", 
+                "BRS Isis", "BRS Nubia", "BRS Morena", "BRS Clara", "BRS Linda"
+            ]
+        }
+    }
+    
+    # Fallback file mapping for each category and subcategory
+    FALLBACK_FILE_MAPPING = {
+        "producao": "Producao.csv",
+        "comercializacao": "Comercio.csv",
+        "processamento": {
+            "default": "ProcessaSemclass.csv",
+            "viniferas": "ProcessaViniferas.csv",
+            "americanas": "ProcessaAmericanas.csv",
+            "mesa": "ProcessaMesa.csv",
+            "semclassificacao": "ProcessaSemclass.csv"
+        },
+        "importacao": {
+            "default": "ImpVinhos.csv",
+            "vinhos": "ImpVinhos.csv",
+            "espumantes": "ImpEspumantes.csv",
+            "sucos": "ImpSuco.csv",
+            "passas": "ImpPassas.csv",
+            "frescas": "ImpFrescas.csv"
+        },
+        "exportacao": {
+            "default": "ExpVinho.csv",
+            "vinhos": "ExpVinho.csv",
+            "espumantes": "ExpEspumantes.csv",
+            "sucos": "ExpSuco.csv",
+            "uvas": "ExpUva.csv"
+        }
+    }
+    
+    # Patterns to detect subcategories based on filename or column names
+    FILE_PATTERN_MAPPING = {
+        "exportacao": {
+            "vinhos": ["vinho", "vinhos", "ExpVinho"],
+            "espumantes": ["espumante", "espumantes", "ExpEspumantes"],
+            "sucos": ["suco", "sucos", "ExpSuco"],
+            "uvas": ["uva", "uvas", "ExpUva", "fresca", "frescas"]
+        },
+        "importacao": {
+            "vinhos": ["vinho", "vinhos", "ImpVinhos"],
+            "espumantes": ["espumante", "espumantes", "ImpEspumantes"],
+            "sucos": ["suco", "sucos", "ImpSuco"],
+            "passas": ["passa", "passas", "ImpPassas"],
+            "frescas": ["fresca", "frescas", "ImpFrescas"]
+        }
+    }
+    
+    def __init__(self, base_url: str = BASE_URL):
         self.base_url = base_url
         self.logger = logging.getLogger(__name__)
         self.last_known_hash: Dict[str, str] = {}

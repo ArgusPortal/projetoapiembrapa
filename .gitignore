@@ -1,4 +1,9 @@
 .venv
+# Ignore data files except fallback files in root directory
 *.csv
 *.parquet
 *.json
+# Allow CSV files in root directory for fallback
+!/*.csv
+# But still ignore these specific files in any directory
+tests/*.csv
