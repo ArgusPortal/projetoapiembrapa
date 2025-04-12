@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import re
 from bs4 import BeautifulSoup
+import os
+from pathlib import Path
 
 from app.services.scraper.adaptive_scraper import AdaptiveScraper, ScrapedData
 from app.services.cache_service import data_cache
@@ -21,30 +23,33 @@ class ViniDataService:
     
     def __init__(self):
         self.scraper = AdaptiveScraper(base_url=settings.VITIBRASIL_BASE_URL)
+        # Corrigindo o caminho para app/data ao invés de criar outra pasta data
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.data_dir = os.path.join(base_path, 'data')
         self.fallback_files = {
-            'producao': 'Producao.csv',
+            'producao': os.path.join(self.data_dir, 'Producao.csv'),
             'processamento': {
-                'default': 'ProcessaViniferas.csv',
-                'viniferas': 'ProcessaViniferas.csv',
-                'americanas': 'ProcessaAmericanas.csv',
-                'mesa': 'ProcessaMesa.csv',
-                'semclassificacao': 'ProcessaSemclass.csv',
+                'default': os.path.join(self.data_dir, 'ProcessaViniferas.csv'),
+                'viniferas': os.path.join(self.data_dir, 'ProcessaViniferas.csv'),
+                'americanas': os.path.join(self.data_dir, 'ProcessaAmericanas.csv'),
+                'mesa': os.path.join(self.data_dir, 'ProcessaMesa.csv'),
+                'semclassificacao': os.path.join(self.data_dir, 'ProcessaSemclass.csv'),
             },
-            'comercializacao': 'Comercio.csv',
+            'comercializacao': os.path.join(self.data_dir, 'Comercio.csv'),
             'importacao': {
-                'default': 'ImpVinhos.csv',
-                'vinhos': 'ImpVinhos.csv',
-                'sucos': 'ImpSuco.csv',
-                'espumantes': 'ImpEspumantes.csv',
-                'passas': 'ImpPassas.csv',
-                'frescas': 'ImpFrescas.csv',
+                'default': os.path.join(self.data_dir, 'ImpVinhos.csv'),
+                'vinhos': os.path.join(self.data_dir, 'ImpVinhos.csv'),
+                'sucos': os.path.join(self.data_dir, 'ImpSuco.csv'),
+                'espumantes': os.path.join(self.data_dir, 'ImpEspumantes.csv'),
+                'passas': os.path.join(self.data_dir, 'ImpPassas.csv'),
+                'frescas': os.path.join(self.data_dir, 'ImpFrescas.csv'),
             },
             'exportacao': {
-                'default': 'ExpVinho.csv',
-                'vinhos': 'ExpVinho.csv',
-                'sucos': 'ExpSuco.csv',
-                'espumantes': 'ExpEspumantes.csv',
-                'uvas': 'ExpUva.csv',
+                'default': os.path.join(self.data_dir, 'ExpVinho.csv'),
+                'vinhos': os.path.join(self.data_dir, 'ExpVinho.csv'),
+                'sucos': os.path.join(self.data_dir, 'ExpSuco.csv'),
+                'espumantes': os.path.join(self.data_dir, 'ExpEspumantes.csv'),
+                'uvas': os.path.join(self.data_dir, 'ExpUva.csv'),
             }
         }
     
@@ -378,34 +383,86 @@ class ViniDataService:
         Returns:
             Subcategoria detectada ou None se não foi possível detectar
         """
-        if not data or len(data) < 2:
+        if not data or len(data) < 1:  # Mudado de 2 para 1 para permitir arrays menores
             return None
             
+        # Logging para debug
+        logger.debug(f"Detecting subcategory for category: {category} with {len(data)} records")
+        
         # Para processamento, verificamos o tipo de cultivar
-        if category == "processamento" and category in self.scraper.CULTIVAR_TYPE_MAPPING:
+        if category == "processamento":
             # Obtenha todas as cultivares nos dados
             cultivares = []
             for item in data:
-                if "Cultivar" in item and item["Cultivar"]:
-                    cultivares.append(item["Cultivar"])
+                # Checa se o item tem uma chave 'cultivar' ou 'Cultivar', em qualquer variação de capitalização
+                cultivar_keys = ['cultivar', 'Cultivar', 'CULTIVAR']
+                cultivar_value = None
+                
+                for key in cultivar_keys:
+                    # Procura a chave exata
+                    if key in item and item[key]:
+                        cultivar_value = item[key]
+                        break
+                    
+                    # Procura chaves case-insensitive se não encontrou a chave exata
+                    for k in item.keys():
+                        if k.lower() == key.lower() and item[k]:
+                            cultivar_value = item[k]
+                            break
+                
+                if cultivar_value:
+                    cultivares.append(cultivar_value)
+                    logger.debug(f"Found cultivar: {cultivar_value}")
             
             if not cultivares:
+                logger.warning("No cultivar data found for subcategory detection")
                 return None
                 
-            # Contadores por tipo
-            counts = {subcategory: 0 for subcategory in self.scraper.CULTIVAR_TYPE_MAPPING[category].keys()}
-            
-            # Conta as ocorrências de cada tipo
-            for cultivar in cultivares:
-                for subcategory, cultivar_list in self.scraper.CULTIVAR_TYPE_MAPPING[category].items():
-                    if any(c.lower() in cultivar.lower() for c in cultivar_list):
-                        counts[subcategory] += 1
-            
-            # Retorna o tipo com mais ocorrências, se houver algum
-            if counts:
-                max_count = max(counts.values())
-                if max_count > 0:
-                    return max(counts.items(), key=lambda x: x[1])[0]
+            # Verifica se o scraper está usando SQLite
+            if hasattr(self.scraper, 'use_sqlite') and self.scraper.use_sqlite:
+                logger.debug("Using SQLite classifier for subcategory detection")
+                # Se estiver usando SQLite, utilize o método classify_cultivar do AdaptiveScraper
+                subcategory_counts = {}
+                
+                # Garante que temos ao menos uma cultivar para classificar
+                if len(cultivares) > 0:
+                    for cultivar in cultivares:
+                        # Chama o método classify_cultivar diretamente
+                        subcategory = self.scraper.classify_cultivar(cultivar, category)
+                        
+                        # Debug para verificar o resultado da classificação
+                        logger.debug(f"SQLite classification for '{cultivar}': {subcategory}")
+                        
+                        if subcategory:
+                            subcategory_counts[subcategory] = subcategory_counts.get(subcategory, 0) + 1
+                
+                    # Retorna a subcategoria com mais ocorrências, se houver alguma
+                    if subcategory_counts:
+                        most_common = max(subcategory_counts.items(), key=lambda x: x[1])[0]
+                        logger.debug(f"Most common subcategory detected: {most_common}")
+                        return most_common
+                    else:
+                        logger.warning("No subcategory detected after classification")
+            else:
+                # Usa o método tradicional baseado em CULTIVAR_TYPE_MAPPING para compatibilidade
+                logger.debug("Using traditional mapping for subcategory detection")
+                if category in self.scraper.CULTIVAR_TYPE_MAPPING:
+                    # Contadores por tipo
+                    counts = {subcategory: 0 for subcategory in self.scraper.CULTIVAR_TYPE_MAPPING[category].keys()}
+                    
+                    # Conta as ocorrências de cada tipo
+                    for cultivar in cultivares:
+                        for subcategory, cultivar_list in self.scraper.CULTIVAR_TYPE_MAPPING[category].items():
+                            if any(c.lower() in cultivar.lower() for c in cultivar_list):
+                                counts[subcategory] += 1
+                    
+                    # Retorna o tipo com mais ocorrências, se houver algum
+                    if counts:
+                        max_count = max(counts.values())
+                        if max_count > 0:
+                            most_common = max(counts.items(), key=lambda x: x[1])[0]
+                            logger.debug(f"Most common subcategory detected (traditional): {most_common}")
+                            return most_common
         
         # Para exportação e importação, verificamos com base no nome do arquivo de fallback
         elif category in ["exportacao", "importacao"]:
@@ -444,6 +501,7 @@ class ViniDataService:
                 return "vinhos"  # Fallback para a subcategoria mais comum
         
         # Para outros tipos de categoria, podemos implementar lógicas específicas no futuro
+        logger.debug(f"No subcategory detection rule matched for category: {category}")
         return None
     
     def clean_unnecessary_headers(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

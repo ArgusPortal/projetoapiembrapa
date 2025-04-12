@@ -8,6 +8,7 @@ import json
 from io import StringIO
 import pyarrow as pa
 import pyarrow.parquet as pq
+import re
 
 from app.services.data_service import vini_data_service
 from app.schemas.data import DataResponse, ErrorResponse, DataFilter
@@ -40,20 +41,22 @@ async def has_access(credentials: HTTPAuthorizationCredentials = Depends(securit
 async def get_producao(
     start_year: int = Query(1970, description="Ano inicial", ge=1970, le=2025),
     end_year: int = Query(2023, description="Ano final", ge=1970, le=2025),
-    subcategoria: Optional[str] = Query(None, description="Subcategoria de produção", 
-                                       enum=["uvas", "vinhos", "sucos", "derivados"]),
+    subcategoria: Optional[str] = Query(None, description="Subcategoria de produção (opcional)", 
+                                       enum=["VINHO DE MESA", "VINHO FINO DE MESA (VINIFERA)", "SUCO", "DERIVADOS"]),
     produto: Optional[str] = Query(None, description="Filtrar por tipo específico de produto"),
-    regiao: Optional[str] = Query(None, description="Região geográfica"),
     format: str = Query("json", description="Formato da resposta (json, csv, parquet)"),
     _: bool = Depends(has_access)
 ):
     """
     Obtém dados de produção de uvas, vinhos e sucos
     
-    - **uvas**: Produção de uvas para processamento e consumo in natura
-    - **vinhos**: Produção de vinhos finos, de mesa e espumantes
-    - **sucos**: Produção de sucos integrais e concentrados
-    - **derivados**: Produção de outros derivados de uva e vinho
+    Este endpoint não requer subcategoria obrigatória.
+    
+    Subcategorias disponíveis:
+    - **VINHO DE MESA**: Produção de vinhos de mesa (tintos, brancos, rosados)
+    - **VINHO FINO DE MESA (VINIFERA)**: Produção de vinhos finos de uvas viníferas
+    - **SUCO**: Produção de sucos de uva integrais, concentrados e outros derivados
+    - **DERIVADOS**: Produção de espumantes e outros derivados de uva e vinho
     """
     try:
         # Obtenha os dados
@@ -62,7 +65,7 @@ async def get_producao(
             start_year=start_year,
             end_year=end_year,
             subcategory=subcategoria,
-            region=regiao,
+            region=None,
             product_type=produto,
         )
         
@@ -70,48 +73,198 @@ async def get_producao(
         if result.get("data"):
             result["data"] = vini_data_service.clean_unnecessary_headers(result["data"])
             
-            # Se não foi especificada uma subcategoria, mas temos vários tipos de dados,
-            # identifique a subcategoria de cada registro
-            if not subcategoria:
-                # Tente identificar a subcategoria de cada registro com base no produto
-                produto_mapping = {
-                    "uvas": ["uva", "videira", "parreiral", "cultivar", "vitis", "niágara", "itália", "bordô", "cabernet"],
-                    "vinhos": ["vinho", "vinificação", "tinto", "branco", "rosé", "rose", "mesa", "fino"],
-                    "sucos": ["suco", "mosto", "integral", "concentrado", "bebida", "néctar"],
-                    "derivados": ["derivado", "fermentado", "aguardente", "grappa", "bagaceira", "cooler", "filtrado"]
-                }
+            # Preparamos a estrutura para armazenar os itens processados
+            filtered_data = []
+            # Dicionário para evitar duplicatas usando uma chave composta
+            processed_items = {}
+            
+            # Primeira passagem para identificar categorias principais
+            category_markers = {
+                "VINHO DE MESA": False,
+                "VINHO FINO DE MESA (VINIFERA)": False,
+                "SUCO": False,
+                "DERIVADOS": False
+            }
+            
+            current_category = None
+            
+            # Primeira passagem para identificar categorias principais e sua ordem
+            for item in result["data"]:
+                # Extraímos as informações necessárias para classificação
+                produto_nome = None
+                for campo in ["Produto", "produto", "Descrição", "Descricao", "descrição", "descricao", "item", "Item", "Nome"]:
+                    if campo in item and item[campo]:
+                        produto_nome = str(item[campo])
+                        break
                 
-                for item in result["data"]:
-                    # Verifica se já tem subcategoria identificada
-                    if "subcategoria" not in item:
-                        # Verifica o texto de produto para identificar a subcategoria
-                        # Procura em diferentes campos que podem conter informação do produto
-                        item_text = ""
-                        for campo in ["Produto", "produto", "Descrição", "Descricao", "descrição", "descricao", "item", "Item", "Nome"]:
-                            if campo in item and item[campo]:
-                                item_text += str(item[campo]).lower() + " "
-                        
-                        # Verifica se o texto do item contém palavras-chave das subcategorias
-                        for subcategoria_nome, palavras_chave in produto_mapping.items():
-                            if any(palavra in item_text for palavra in palavras_chave):
-                                item["subcategoria"] = subcategoria_nome
-                                break
-                        
-                        # Se mesmo assim não identificou, tenta usar a unidade de medida
-                        if "subcategoria" not in item and "Unidade" in item:
-                            unidade = str(item["Unidade"]).lower()
-                            if "kg" in unidade or "ton" in unidade:
-                                item["subcategoria"] = "uvas"
-                            elif "l" in unidade or "litro" in unidade:
-                                item["subcategoria"] = "vinhos"
-                        
-                        # Se mesmo assim não identificou, coloca como uvas (mais comum)
-                        if "subcategoria" not in item:
-                            item["subcategoria"] = "uvas"
-            else:
-                # Adicione a subcategoria em cada registro usando o valor fornecido
-                for item in result["data"]:
-                    item["subcategoria"] = subcategoria
+                if not produto_nome:
+                    continue
+                
+                # Verificamos se o nome do produto indica que é uma categoria principal
+                is_category_title = produto_nome.isupper() or all(c.isupper() or not c.isalpha() for c in produto_nome)
+                
+                if is_category_title:
+                    if "VINHO DE MESA" in produto_nome and "FINO" not in produto_nome and "VINIFERA" not in produto_nome:
+                        current_category = "VINHO DE MESA"
+                        category_markers["VINHO DE MESA"] = True
+                    elif "VINHO FINO" in produto_nome or "VINIFERA" in produto_nome:
+                        current_category = "VINHO FINO DE MESA (VINIFERA)"
+                        category_markers["VINHO FINO DE MESA (VINIFERA)"] = True
+                    elif "SUCO" in produto_nome:
+                        current_category = "SUCO"
+                        category_markers["SUCO"] = True
+                    elif "DERIVADOS" in produto_nome:
+                        current_category = "DERIVADOS"
+                        category_markers["DERIVADOS"] = True
+            
+            # Segunda passagem para processar todos os itens com o contexto das categorias principais
+            current_category = None
+            
+            for item in result["data"]:
+                # Extraímos as informações necessárias para classificação
+                produto_nome = None
+                for campo in ["Produto", "produto", "Descrição", "Descricao", "descrição", "descricao", "item", "Item", "Nome"]:
+                    if campo in item and item[campo]:
+                        produto_nome = str(item[campo])
+                        break
+                
+                if not produto_nome:
+                    continue
+                
+                # Verificamos se o item tem um código de controle que indica a categoria
+                control_code = item.get("control", "")
+                
+                # Extraímos o valor para classificação
+                valor_str = ""
+                valor_numerico = 0
+                for campo_valor in ["Quantidade (L.)", "Quantidade", "valor", "Valor", "Volume"]:
+                    if campo_valor in item and item[campo_valor]:
+                        valor_str = str(item[campo_valor])
+                        try:
+                            # Remove caracteres não numéricos, exceto ponto
+                            valor_numerico = float(re.sub(r'[^\d.]', '', valor_str))
+                        except:
+                            pass  # Falha na conversão, deixa como 0
+                        break
+                
+                # Verificamos se o nome do produto indica que é uma categoria principal
+                is_category_title = produto_nome.isupper() or all(c.isupper() or not c.isalpha() for c in produto_nome)
+                
+                # Determina a subcategoria correta
+                if is_category_title:
+                    # É um título de categoria principal, usa o título como subcategoria
+                    if "VINHO DE MESA" in produto_nome and "FINO" not in produto_nome and "VINIFERA" not in produto_nome:
+                        item["subcategoria"] = "VINHO DE MESA"
+                        current_category = "VINHO DE MESA"
+                    elif "VINHO FINO" in produto_nome or "VINIFERA" in produto_nome:
+                        item["subcategoria"] = "VINHO FINO DE MESA (VINIFERA)"
+                        current_category = "VINHO FINO DE MESA (VINIFERA)"
+                    elif "SUCO" in produto_nome:
+                        item["subcategoria"] = "SUCO"
+                        current_category = "SUCO"
+                    elif "DERIVADOS" in produto_nome:
+                        item["subcategoria"] = "DERIVADOS"
+                        current_category = "DERIVADOS"
+                    
+                    item["categoria_principal"] = True
+                else:
+                    # Não é título de categoria, é um produto específico
+                    item["categoria_principal"] = False
+                    
+                    # Classifica com base no código de controle (prioritário)
+                    if control_code:
+                        if control_code.startswith("vm_"):
+                            item["subcategoria"] = "VINHO DE MESA"
+                        elif control_code.startswith("vv_"):
+                            item["subcategoria"] = "VINHO FINO DE MESA (VINIFERA)"
+                        elif control_code.startswith("su_"):
+                            item["subcategoria"] = "SUCO"
+                        elif control_code.startswith("de_"):
+                            item["subcategoria"] = "DERIVADOS"
+                        else:
+                            # Se tem código de controle mas não é um dos prefixos conhecidos
+                            # Use a categoria atual como contexto
+                            item["subcategoria"] = current_category if current_category else "NÃO CATEGORIZADO"
+                    else:
+                        # Se ainda não tem subcategoria, primeiro considera o contexto atual
+                        if current_category and produto_nome in ["Tinto", "Branco", "Rosado"]:
+                            item["subcategoria"] = current_category
+                        else:
+                            # Tenta classificar pelo nome do produto
+                            produto_lower = produto_nome.lower()
+                            
+                            # Identificação específica por produto
+                            if any(termo in produto_lower for termo in ["tinto", "branco", "rosado"]):
+                                # Se o contexto atual é vinho fino, mantém essa categoria
+                                if current_category == "VINHO FINO DE MESA (VINIFERA)":
+                                    item["subcategoria"] = "VINHO FINO DE MESA (VINIFERA)"
+                                else:
+                                    # Se não há contexto ou está em vinho de mesa, classifica como vinho de mesa
+                                    item["subcategoria"] = "VINHO DE MESA"
+                            elif any(termo in produto_lower for termo in ["suco", "integral", "concentrado", "reconstituído", "adoçado", "néctar"]):
+                                item["subcategoria"] = "SUCO"
+                            elif any(termo in produto_lower for termo in ["espumante", "champanhe", "base", "moscatel", "charmat", "champenoise", "licoroso", "mistela", "mosto", "polpa", "bebida de uva", "vinho licoroso", "jeropiga"]):
+                                item["subcategoria"] = "DERIVADOS"
+                            elif subcategoria:
+                                # Se ainda não classificou mas o usuário passou uma subcategoria, usa ela
+                                item["subcategoria"] = subcategoria
+                            elif current_category:
+                                # Usa o contexto atual se ainda não classificou
+                                item["subcategoria"] = current_category
+                            else:
+                                # Fallback: se não conseguiu classificar de nenhuma forma, marca como não categorizado
+                                item["subcategoria"] = "NÃO CATEGORIZADO"
+                
+                # Casos especiais que precisam de regras específicas
+                if produto_nome.lower() == "mosto concentrado":
+                    item["subcategoria"] = "DERIVADOS"
+                
+                if produto_nome.lower() in ["vinagre", "borra líquida", "borra seca", "brandy", "vinho orgânico", "jeropiga"]:
+                    item["subcategoria"] = "DERIVADOS"
+                
+                if produto_nome == "Total":
+                    item["subcategoria"] = "NÃO CATEGORIZADO"
+                
+                # Adiciona identificador de origem nos produtos com nomes duplicados (Tinto, Branco, Rosado)
+                # que podem aparecer em subcategorias diferentes
+                if produto_nome in ["Tinto", "Branco", "Rosado"]:
+                    if item.get("subcategoria") == "VINHO FINO DE MESA (VINIFERA)":
+                        item["produto_completo"] = f"{produto_nome} (Viníferas)"
+                    elif item.get("subcategoria") == "VINHO DE MESA":
+                        item["produto_completo"] = f"{produto_nome} (Mesa)"
+                    else:
+                        item["produto_completo"] = produto_nome
+                else:
+                    item["produto_completo"] = produto_nome
+                
+                # Criamos uma chave única que inclui subcategoria e código de controle para evitar duplicatas
+                item_key = f"{produto_nome}_{control_code}_{item.get('subcategoria', '')}_{valor_str}_{item.get('ano', '')}"
+                if item_key in processed_items:
+                    continue
+                
+                processed_items[item_key] = True
+                
+                # Filtra conforme os parâmetros da requisição
+                should_include = True
+                
+                # Se filtrou por subcategoria, só inclui os itens daquela subcategoria
+                if subcategoria and item.get("subcategoria") != subcategoria:
+                    should_include = False
+                
+                # Se filtrou por produto específico
+                if should_include and produto and produto_nome and produto.lower() not in produto_nome.lower():
+                    should_include = False
+                
+                if should_include:
+                    filtered_data.append(item)
+            
+            # Substitui os dados originais pelos dados filtrados
+            if filtered_data:
+                result["data"] = filtered_data
+            
+            # Se não houver dados após o processamento
+            if not result.get("data") or len(result["data"]) == 0:
+                result["message"] = "Nenhum dado encontrado com os filtros especificados"
         
         # Handle different output formats
         if format == "csv":

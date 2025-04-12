@@ -4,6 +4,7 @@
 *.parquet
 *.json
 # Allow CSV files in root directory for fallback
-!/*.csv
+!/app/data/*.csv
 # But still ignore these specific files in any directory
 tests/*.csv
+.qodo

@@ -119,9 +119,12 @@ GET /api/producao/
 Parâmetros:
 - `start_year` (int): Ano inicial (min: 1970)
 - `end_year` (int): Ano final (max: 2025)
-- `produto` (string, opcional): Filtro por tipo de produto
-- `regiao` (string, opcional): Filtro por região geográfica
+- `subcategoria` (string, opcional): Filtro por tipo de produto (uvas, vinhos, sucos, derivados)
+- `produto` (string, opcional): Filtro por tipo específico de produto
+- `regiao` (string, opcional): Filtro por região geográfica (Sul, Sudeste, RS, SP, etc.)
 - `format` (string, opcional): Formato da resposta (json, csv, parquet)
+
+**Importante**: Este endpoint não requer subcategoria obrigatória, diferente de outros endpoints.
 
 ### Processamento Industrial
 
@@ -132,7 +135,8 @@ GET /api/processamento/
 Parâmetros:
 - `start_year` (int): Ano inicial
 - `end_year` (int): Ano final
-- `tipo` (string, opcional): Tipo de processamento
+- `subcategoria` (string, opcional): Tipo de processamento (viniferas, americanas, mesa, semclassificacao)
+- `tipo_uva` (string, opcional): Filtro por tipo específico de uva
 - `regiao` (string, opcional): Filtro por região geográfica
 - `format` (string, opcional): Formato da resposta
 
@@ -146,7 +150,9 @@ Parâmetros:
 - `start_year` (int): Ano inicial
 - `end_year` (int): Ano final
 - `canal` (string, opcional): Canal de comercialização
+- `subcategoria` (string, obrigatório): Subcategoria de produto
 - `produto` (string, opcional): Tipo de produto
+- `regiao` (string, opcional): Região geográfica
 - `format` (string, opcional): Formato da resposta
 
 ### Exportação
@@ -158,6 +164,7 @@ GET /api/exportacao/
 Parâmetros:
 - `start_year` (int): Ano inicial
 - `end_year` (int): Ano final
+- `subcategoria` (string, obrigatório): Subcategoria de exportação
 - `produto` (string, opcional): Tipo de produto
 - `destino` (string, opcional): País/região de destino
 - `format` (string, opcional): Formato da resposta
@@ -171,6 +178,7 @@ GET /api/importacao/
 Parâmetros:
 - `start_year` (int): Ano inicial
 - `end_year` (int): Ano final
+- `subcategoria` (string, opcional): Subcategoria de importação
 - `produto` (string, opcional): Tipo de produto
 - `origem` (string, opcional): País/região de origem
 - `format` (string, opcional): Formato da resposta
@@ -190,7 +198,7 @@ curl -X 'GET' \
 
 ```bash
 curl -X 'GET' \
-  'http://localhost:8000/api/comercializacao/?start_year=2020&end_year=2023&format=csv' \
+  'http://localhost:8000/api/comercializacao/?start_year=2020&end_year=2023&subcategoria=vinhos&format=csv' \
   -H 'accept: text/csv' \
   -H 'Authorization: Bearer seu_token_aqui' \
   --output comercializacao.csv
