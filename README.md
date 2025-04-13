@@ -15,6 +15,27 @@ Esta API permite o acesso programático aos dados vitivinícolas do portal VitiB
 - **Autenticação**: Sistema JWT para controle de acesso
 - **Monitoramento**: Prometheus para métricas de utilização
 
+## Atualizações Recentes (Abril 2025)
+
+### Novas Funcionalidades
+- **Sistema de Cache Aprimorado**: Implementação de cache em múltiplas camadas para melhor desempenho
+- **Suporte a Formato Parquet**: Adicionado suporte a exportação de dados em formato Parquet otimizado para análises
+- **Processador de Dados de Produção**: Implementação específica para tratamento de dados de produção
+- **Base de Conhecimento de Cultivares**: Adicionada estrutura JSON para classificação de cultivares
+- **Classificador Adaptativo**: Sistema inteligente para categorização de cultivares
+
+### Melhorias Técnicas
+- **Scraping Adaptativo**: Sistema capaz de se adaptar a mudanças no portal original
+- **Mecanismo de Fallback**: Continuidade de serviço mesmo quando a fonte original está indisponível
+- **Parsers HTML Robustos**: Aprimoramento na extração de dados de tabelas HTML inconsistentes
+- **Formatação Inteligente**: Melhoria no processamento e limpeza de dados exportados
+
+### Correções de Bugs
+- Resolução de problemas com exportação CSV com dados duplicados
+- Correção na conversão de valores numéricos com vírgula como separador decimal
+- Tratamento de células vazias e valores especiais (NaN, infinito)
+- Normalização de nomes de produtos e categorias para consistência histórica
+
 ## Requisitos
 
 - Python 3.8+

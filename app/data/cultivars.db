@@ -1,0 +1,2155 @@
+{
+  "cultivars": [
+    {
+      "name": "alicante bouschet",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "ancelota",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "aramon",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "alfrocheiro",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "ancellotta",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "barbera",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "bonarda",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "cabernet franc",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "cabernet sauvignon",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "caladoc",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "carmenère",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "castelão",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "corvina",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "dornfelder",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "gamay noir",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "kanthus",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "magliocco",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "malbec",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "marselan",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "merlot",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "moscato bailey",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "moscato preto",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "mourvèdre",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "muscat noir",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "nebbiolo",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "petit verdot",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "pinot meunier",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "pinot noir",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "pinotage",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "primitivo",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "rebo",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "ruby cabernet",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "sangiovese",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "syrah",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "tannat",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "tempranillo",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "teroldego",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "touriga franca",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "touriga nacional",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "trebbiano",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "trincadeira",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "viognier",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "cabernet",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "sauvignon",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "moscato",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "chardonnay",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "riesling",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "sauvignon blanc",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "gewürztraminer",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "semillon",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "chenin blanc",
+      "type": "viniferas",
+      "confidence": 1.0
+    },
+    {
+      "name": "isabel",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "concord",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "bordô",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "bordó",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "niagara",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "niágara",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "jacquez",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "herbemont",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "seibel",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs magna",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs violeta",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs rúbea",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs cora",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "seyve villard",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "martha",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "cunningham",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "goethe",
+      "type": "americanas",
+      "confidence": 1.0
+    },
+    {
+      "name": "italia",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "itália",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "rubi",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "benitaka",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "red globe",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "niagara rosada",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "crimson",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "thompson",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "perlette",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs vitória",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs isis",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs nubia",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs morena",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs clara",
+      "type": "mesa",
+      "confidence": 1.0
+    },
+    {
+      "name": "brs linda",
+      "type": "mesa",
+      "confidence": 1.0
+    }
+  ],
+  "word_associations": [
+    {
+      "word": "bous",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "chet",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "ante",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "alicante",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "alic",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "bouschet",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "ancelota",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "lota",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "ance",
+      "associations": {
+        "viniferas": 4,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "aramon",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "amon",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "aram",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "alfr",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "eiro",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "alfrocheiro",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "ancellotta",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "otta",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "bera",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "barb",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "barbera",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "bonarda",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "arda",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "bona",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "cabernet",
+      "associations": {
+        "viniferas": 8,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "franc",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "rnet",
+      "associations": {
+        "viniferas": 8,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "cabe",
+      "associations": {
+        "viniferas": 8,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "sauv",
+      "associations": {
+        "viniferas": 6,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "gnon",
+      "associations": {
+        "viniferas": 6,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "sauvignon",
+      "associations": {
+        "viniferas": 6,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "cala",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "adoc",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "caladoc",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "carmenère",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "nère",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "carm",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "elão",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "cast",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "castelão",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "corvina",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "vina",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "corv",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "lder",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "dornfelder",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "dorn",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "noir",
+      "associations": {
+        "viniferas": 6,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "gamay",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "kanthus",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "kant",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "thus",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "magliocco",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "occo",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "magl",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "malbec",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "lbec",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "malb",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "mars",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "marselan",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "elan",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "merl",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "merlot",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "rlot",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "moscato",
+      "associations": {
+        "viniferas": 6,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "mosc",
+      "associations": {
+        "viniferas": 6,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "cato",
+      "associations": {
+        "viniferas": 6,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "iley",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "bail",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "bailey",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "preto",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "èdre",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "mour",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "mourvèdre",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "muscat",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "scat",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "musc",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "nebb",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "nebbiolo",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "iolo",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "verd",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "rdot",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "verdot",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "petit",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "meunier",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "nier",
+      "associations": {
+        "viniferas": 4,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "meun",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "pinot",
+      "associations": {
+        "viniferas": 4,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "pinotage",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "tage",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "pino",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "primitivo",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "tivo",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "prim",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "rebo",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "ruby",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "vese",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "sang",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "sangiovese",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "syrah",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "nnat",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "tann",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "tannat",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "illo",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "temp",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "tempranillo",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "teroldego",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "tero",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "dego",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "fran",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "touriga",
+      "associations": {
+        "viniferas": 4,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "riga",
+      "associations": {
+        "viniferas": 4,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "tour",
+      "associations": {
+        "viniferas": 4,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "anca",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "franca",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "naci",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "nacional",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "onal",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "treb",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "trebbiano",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "iano",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "trin",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "trincadeira",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "eira",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "viognier",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "viog",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "chardonnay",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "nnay",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "char",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "ries",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "riesling",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "ling",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "blanc",
+      "associations": {
+        "viniferas": 4,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "gewürztraminer",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "gewü",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "iner",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "semillon",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "semi",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "llon",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "chen",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "chenin",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "enin",
+      "associations": {
+        "viniferas": 2,
+        "americanas": 0,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "abel",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "isab",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "isabel",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "concord",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "conc",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "cord",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "bordô",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "bordó",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "niag",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "gara",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 4,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "niagara",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "niág",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "niágara",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "jacquez",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "quez",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "jacq",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "herbemont",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "mont",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "herb",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "seib",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "ibel",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "seibel",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "brs",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 8,
+        "mesa": 12
+      }
+    },
+    {
+      "word": "magna",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "viol",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "leta",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "violeta",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "rúbea",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "cora",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "seyve",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "lard",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "villard",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "vill",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "rtha",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "martha",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "mart",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "cunningham",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "gham",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "cunn",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "goet",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "goethe",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "ethe",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 2,
+        "mesa": 0
+      }
+    },
+    {
+      "word": "alia",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "ital",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "italia",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "itália",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "ália",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "itál",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "rubi",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "beni",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "benitaka",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "taka",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "globe",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "red",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "rosa",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "sada",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "rosada",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "mson",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "crimson",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "crim",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "pson",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "thompson",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "thom",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "perl",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "perlette",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "ette",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "vitória",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "ória",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "vitó",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "isis",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "nubia",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "more",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "rena",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "morena",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "clara",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    },
+    {
+      "word": "linda",
+      "associations": {
+        "viniferas": 0,
+        "americanas": 0,
+        "mesa": 2
+      }
+    }
+  ],
+  "statistics": {
+    "total_classified": 0,
+    "accuracy": 0.0,
+    "last_update": "2025-04-13 13:58:30"
+  },
+  "version": "1.0"
+}

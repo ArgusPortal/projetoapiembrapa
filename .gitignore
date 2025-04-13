@@ -8,3 +8,4 @@
 # But still ignore these specific files in any directory
 tests/*.csv
 .qodo
+__pycache__/

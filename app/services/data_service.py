@@ -7,6 +7,8 @@ import re
 from bs4 import BeautifulSoup
 import os
 from pathlib import Path
+import contextlib
+from abc import ABC, abstractmethod
 
 from app.services.scraper.adaptive_scraper import AdaptiveScraper, ScrapedData
 from app.services.cache_service import data_cache
@@ -15,549 +17,78 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-class ViniDataService:
+class DataFetchStrategy(ABC):
     """
-    Service for retrieving and transforming data from VitiBrasil
-    with caching and fallback mechanisms
+    Abstract strategy for fetching data from different sources
     """
-    
-    def __init__(self):
-        self.scraper = AdaptiveScraper(base_url=settings.VITIBRASIL_BASE_URL)
-        # Corrigindo o caminho para app/data ao invés de criar outra pasta data
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        self.data_dir = os.path.join(base_path, 'data')
-        self.fallback_files = {
-            'producao': os.path.join(self.data_dir, 'Producao.csv'),
-            'processamento': {
-                'default': os.path.join(self.data_dir, 'ProcessaViniferas.csv'),
-                'viniferas': os.path.join(self.data_dir, 'ProcessaViniferas.csv'),
-                'americanas': os.path.join(self.data_dir, 'ProcessaAmericanas.csv'),
-                'mesa': os.path.join(self.data_dir, 'ProcessaMesa.csv'),
-                'semclassificacao': os.path.join(self.data_dir, 'ProcessaSemclass.csv'),
-            },
-            'comercializacao': os.path.join(self.data_dir, 'Comercio.csv'),
-            'importacao': {
-                'default': os.path.join(self.data_dir, 'ImpVinhos.csv'),
-                'vinhos': os.path.join(self.data_dir, 'ImpVinhos.csv'),
-                'sucos': os.path.join(self.data_dir, 'ImpSuco.csv'),
-                'espumantes': os.path.join(self.data_dir, 'ImpEspumantes.csv'),
-                'passas': os.path.join(self.data_dir, 'ImpPassas.csv'),
-                'frescas': os.path.join(self.data_dir, 'ImpFrescas.csv'),
-            },
-            'exportacao': {
-                'default': os.path.join(self.data_dir, 'ExpVinho.csv'),
-                'vinhos': os.path.join(self.data_dir, 'ExpVinho.csv'),
-                'sucos': os.path.join(self.data_dir, 'ExpSuco.csv'),
-                'espumantes': os.path.join(self.data_dir, 'ExpEspumantes.csv'),
-                'uvas': os.path.join(self.data_dir, 'ExpUva.csv'),
-            }
-        }
-    
-    def get_data(
-        self,
-        category: str,
-        start_year: int = 1970,
-        end_year: int = 2025,
-        region: Optional[str] = None,
-        product_type: Optional[str] = None,
-        subcategory: Optional[str] = None,
-        channel: Optional[str] = None,
-        origin: Optional[str] = None,
-        destination: Optional[str] = None,
-    ) -> Dict[str, Any]:
+    @abstractmethod
+    def fetch_data(self, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        Get data with resilient caching and filtering
+        Fetch data according to the strategy
         
         Args:
-            category: Data category (producao, processamento, comercializacao, etc.)
-            start_year: First year to include
-            end_year: Last year to include
-            region: Optional region filter
-            product_type: Optional product type filter
-            subcategory: Optional subcategory name
-            channel: Optional channel filter (for comercializacao)
-            origin: Optional origin country/region (for imports)
-            destination: Optional destination country/region (for exports)
+            params: Parameters for the data fetching
             
         Returns:
-            Dictionary with data and metadata
+            Dictionary with data and metadata or None if fetching failed
         """
-        # Map subcategory based on category and product_type if not explicitly provided
-        if not subcategory and product_type:
-            subcategory = self._map_product_type_to_subcategory(category, product_type)
-        
-        # Create a unique cache key based on all filters
-        cache_key = f"{category}"
-        if subcategory:
-            cache_key += f"_{subcategory}"
-        cache_key += f"_{start_year}_{end_year}"
-        
-        if any([region, product_type, channel, origin, destination]):
-            filter_key = "_filters_"
-            if region:
-                filter_key += f"r{region}"
-            if product_type:
-                filter_key += f"p{product_type}"
-            if channel:
-                filter_key += f"c{channel}"
-            if origin:
-                filter_key += f"o{origin}"
-            if destination:
-                filter_key += f"d{destination}"
-            cache_key += filter_key
+        pass
 
-        # Attempt to get cached data first
-        cached_data = data_cache.get(cache_key)
+
+class OnlineDataFetchStrategy(DataFetchStrategy):
+    """
+    Strategy for fetching data from online sources
+    """
+    def __init__(self, scraper: AdaptiveScraper):
+        self.scraper = scraper
         
-        # Define data fetching function for cache
-        def fetch_data():
-            logger.info(f"Fetching fresh data for category: {category}, subcategory: {subcategory or 'all'}")
-            try:
-                scraped_data = self.scraper.scrape_category(
-                    category=category,
-                    subcategory=subcategory,
-                    start_year=start_year,
-                    end_year=end_year,
-                    region=region,
-                    product_type=product_type,
-                    origin=origin,
-                    destination=destination
-                )
-                
-                # Validate data structure
-                if not self._validate_scraped_data(scraped_data):
-                    logger.warning(f"Invalid data structure detected for {category}, attempting recovery")
-                    recovered_data = self._attempt_data_recovery(scraped_data)
-                    if recovered_data:
-                        return recovered_data.dict()
-                    # If recovery fails, raise exception to trigger fallback
-                    raise ValueError("Data validation failed and recovery was unsuccessful")
-                
-                return scraped_data.dict()
-            
-            except Exception as e:
-                logger.error(f"Error scraping data: {str(e)}")
-                # Return a failed indicator to trigger fallback
-                return None
-        
-        # Try to get from cache, fallback to fresh data
-        result = cached_data or fetch_data()
-        
-        # All attempts failed, try local CSV fallback
-        if not result:
-            logger.warning(f"Online data retrieval failed for {category}, trying fallback files")
-            result = self._load_fallback_data(category, subcategory)
-            
-            # If fallback with subcategory failed, try the default fallback
-            if not result and subcategory:
-                logger.warning(f"Fallback with subcategory {subcategory} failed, trying default fallback")
-                result = self._load_fallback_data(category)
-        
-        # If still no data, return an error
-        if not result:
-            logger.error(f"All data retrieval methods failed for {category}")
-            return {"error": "Data retrieval failed", "data": [], "fallback_used": True}
-        
-        # Store origin of the data
-        data_source = "cache" if cached_data else ("online" if not result.get("fallback_used") else "fallback_file")
-        
-        # Apply filters if necessary
-        filtered_data = self._filter_data(
-            result.get("data", []), 
-            start_year=start_year,
-            end_year=end_year,
-            region=region, 
-            product_type=product_type,
-            channel=channel,
-            origin=origin,
-            destination=destination
-        )
-        
-        # Tenta detectar a subcategoria automaticamente se ela não foi especificada
-        # e os dados não têm uma subcategoria definida
-        if not subcategory and not result.get("metadata", {}).get("subcategory"):
-            detected_subcategory = self.detect_subcategory_from_data(category, filtered_data)
-            
-            # Se detectamos uma subcategoria, atualiza os metadados
-            if detected_subcategory:
-                logger.info(f"Detectada subcategoria automaticamente: {detected_subcategory} para {category}")
-                if "metadata" in result:
-                    result["metadata"]["subcategory"] = detected_subcategory
-                    # Adiciona um campo para indicar que a subcategoria foi detectada automaticamente
-                    result["metadata"]["subcategory_detection"] = "automatic"
-        
-        # Sanitize data for JSON serialization
-        sanitized_data = self._sanitize_for_json(filtered_data)
-        
-        return {
-            "metadata": result.get("metadata", {}),
-            "data": sanitized_data,
-            "from_cache": cached_data is not None,
-            "data_source": data_source,
-            "total_records": len(sanitized_data)
-        }
-    
-    def _validate_scraped_data(self, scraped_data: ScrapedData) -> bool:
+    def fetch_data(self, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        Validate that the scraped data has the expected structure
+        Fetch data from online source using scraper
         
         Args:
-            scraped_data: The scraped data to validate
+            params: Parameters for scraping
             
         Returns:
-            True if valid, False otherwise
+            Dictionary with data and metadata or None if scraping failed
         """
-        # Check if data is a list as expected
-        if not isinstance(scraped_data.data, list):
-            return False
-            
-        # Empty list is valid but suspicious for most queries
-        if len(scraped_data.data) == 0:
-            logger.warning("Scraped data returned an empty list")
-            return True
-            
-        # Check that each item is a dictionary
-        if not all(isinstance(item, dict) for item in scraped_data.data):
-            return False
-            
-        # Check that we have reasonable keys in each dictionary
-        # At minimum each record should have some key besides 'ano'
-        has_valid_keys = False
-        for item in scraped_data.data[:10]:  # Check first 10 items
-            if len(item.keys()) > 1:
-                has_valid_keys = True
-                break
-                
-        return has_valid_keys
-    
-    def _attempt_data_recovery(self, scraped_data: ScrapedData) -> Optional[ScrapedData]:
-        """
-        Attempt to recover data from potentially malformed scraped content
-        
-        Args:
-            scraped_data: The scraped data to recover
-            
-        Returns:
-            Recovered ScrapedData or None if recovery failed
-        """
-        # First, check if this is raw HTML rather than parsed data
-        if hasattr(scraped_data, 'raw_html'):
-            logger.info("Attempting to parse raw HTML directly")
-            try:
-                html_content = scraped_data.raw_html
-                recovered_data = self._parse_raw_html(html_content, scraped_data.source_url)
-                
-                if recovered_data and len(recovered_data) > 0:
-                    # Return recovered data in the expected format
-                    return ScrapedData(
-                        source_url=scraped_data.source_url,
-                        timestamp=scraped_data.timestamp,
-                        data=recovered_data,
-                        metadata=scraped_data.metadata
-                    )
-            except Exception as e:
-                logger.error(f"Recovery parsing failed: {str(e)}")
-        
-        return None
-    
-    def _parse_raw_html(self, html_content: str, source_url: str) -> List[Dict[str, Any]]:
-        """
-        Parse raw HTML from failed scraping attempts
-        
-        Args:
-            html_content: Raw HTML content
-            source_url: The source URL
-            
-        Returns:
-            List of dictionaries extracted from the HTML
-        """
-        soup = BeautifulSoup(html_content, 'html.parser')
-        results = []
-        
-        # Extract year from URL if present
-        year_match = re.search(r'ano=(\d{4})', source_url)
-        year = int(year_match.group(1)) if year_match else None
-        
-        # Find tables
-        tables = soup.find_all('table')
-        logger.info(f"Found {len(tables)} tables in HTML")
-        
-        for table in tables:
-            # Extract headers
-            header_row = table.find('tr')
-            if not header_row:
-                continue
-                
-            headers = []
-            for th in header_row.find_all(['th', 'td']):
-                header_text = th.text.strip()
-                if header_text:
-                    headers.append(header_text)
-                else:
-                    headers.append(f"column_{len(headers)}")
-            
-            if not headers:
-                continue
-                
-            # Extract data rows
-            for row in table.find_all('tr')[1:]:
-                cells = row.find_all(['td', 'th'])
-                
-                if len(cells) == 0:
-                    continue
-                    
-                # Create record
-                record = {}
-                for i, cell in enumerate(cells):
-                    if i < len(headers):
-                        key = headers[i]
-                        value = cell.text.strip()
-                        record[key] = value
-                
-                # Add year if we found it
-                if year and 'ano' not in record:
-                    record['ano'] = year
-                    
-                if record:
-                    results.append(record)
-        
-        return results
-    
-    def _map_product_type_to_subcategory(self, category: str, product_type: str) -> Optional[str]:
-        """
-        Map product type to appropriate subcategory based on the category
-        
-        Args:
-            category: The data category
-            product_type: The product type
-            
-        Returns:
-            Mapped subcategory name or None
-        """
-        mapping = {
-            'processamento': {
-                'vinifera': 'viniferas',
-                'viniferas': 'viniferas',
-                'americana': 'americanas',
-                'americanas': 'americanas',
-                'mesa': 'mesa',
-            },
-            'importacao': {
-                'vinho': 'vinhos',
-                'vinhos': 'vinhos',
-                'suco': 'sucos',
-                'sucos': 'sucos',
-                'espumante': 'espumantes',
-                'espumantes': 'espumantes',
-                'passa': 'passas',
-                'passas': 'passas',
-                'fresca': 'frescas',
-                'frescas': 'frescas',
-                'uvas frescas': 'frescas',
-            },
-            'exportacao': {
-                'vinho': 'vinhos',
-                'vinhos': 'vinhos',
-                'suco': 'sucos',
-                'sucos': 'sucos',
-                'espumante': 'espumantes',
-                'espumantes': 'espumantes',
-                'uva': 'uvas',
-                'uvas': 'uvas',
-            }
-        }
-        
-        if category in mapping and product_type.lower() in mapping[category]:
-            return mapping[category][product_type.lower()]
-        
-        return None
-    
-    def detect_subcategory_from_data(self, category: str, data: List[Dict[str, Any]]) -> Optional[str]:
-        """
-        Detecta automaticamente a subcategoria com base no conteúdo dos dados.
-        
-        Args:
-            category: Categoria principal dos dados ('processamento', 'importacao', 'exportacao', etc.)
-            data: Lista de registros para análise
-            
-        Returns:
-            Subcategoria detectada ou None se não foi possível detectar
-        """
-        if not data or len(data) < 1:  # Mudado de 2 para 1 para permitir arrays menores
+        try:
+            scraped_data = self.scraper.scrape_category(
+                category=params['category'],
+                subcategory=params.get('subcategory'),
+                start_year=params.get('start_year', 1970),
+                end_year=params.get('end_year', 2025),
+                region=params.get('region'),
+                product_type=params.get('product_type'),
+                origin=params.get('origin'),
+                destination=params.get('destination')
+            )
+            return scraped_data.dict()
+        except Exception as e:
+            logger.error(f"Error scraping data: {str(e)}")
             return None
-            
-        # Logging para debug
-        logger.debug(f"Detecting subcategory for category: {category} with {len(data)} records")
+
+
+class FallbackDataFetchStrategy(DataFetchStrategy):
+    """
+    Strategy for fetching data from local fallback files
+    """
+    def __init__(self, fallback_files: Dict[str, Any]):
+        self.fallback_files = fallback_files
         
-        # Para processamento, verificamos o tipo de cultivar
-        if category == "processamento":
-            # Obtenha todas as cultivares nos dados
-            cultivares = []
-            for item in data:
-                # Checa se o item tem uma chave 'cultivar' ou 'Cultivar', em qualquer variação de capitalização
-                cultivar_keys = ['cultivar', 'Cultivar', 'CULTIVAR']
-                cultivar_value = None
-                
-                for key in cultivar_keys:
-                    # Procura a chave exata
-                    if key in item and item[key]:
-                        cultivar_value = item[key]
-                        break
-                    
-                    # Procura chaves case-insensitive se não encontrou a chave exata
-                    for k in item.keys():
-                        if k.lower() == key.lower() and item[k]:
-                            cultivar_value = item[k]
-                            break
-                
-                if cultivar_value:
-                    cultivares.append(cultivar_value)
-                    logger.debug(f"Found cultivar: {cultivar_value}")
-            
-            if not cultivares:
-                logger.warning("No cultivar data found for subcategory detection")
-                return None
-                
-            # Verifica se o scraper está usando SQLite
-            if hasattr(self.scraper, 'use_sqlite') and self.scraper.use_sqlite:
-                logger.debug("Using SQLite classifier for subcategory detection")
-                # Se estiver usando SQLite, utilize o método classify_cultivar do AdaptiveScraper
-                subcategory_counts = {}
-                
-                # Garante que temos ao menos uma cultivar para classificar
-                if len(cultivares) > 0:
-                    for cultivar in cultivares:
-                        # Chama o método classify_cultivar diretamente
-                        subcategory = self.scraper.classify_cultivar(cultivar, category)
-                        
-                        # Debug para verificar o resultado da classificação
-                        logger.debug(f"SQLite classification for '{cultivar}': {subcategory}")
-                        
-                        if subcategory:
-                            subcategory_counts[subcategory] = subcategory_counts.get(subcategory, 0) + 1
-                
-                    # Retorna a subcategoria com mais ocorrências, se houver alguma
-                    if subcategory_counts:
-                        most_common = max(subcategory_counts.items(), key=lambda x: x[1])[0]
-                        logger.debug(f"Most common subcategory detected: {most_common}")
-                        return most_common
-                    else:
-                        logger.warning("No subcategory detected after classification")
-            else:
-                # Usa o método tradicional baseado em CULTIVAR_TYPE_MAPPING para compatibilidade
-                logger.debug("Using traditional mapping for subcategory detection")
-                if category in self.scraper.CULTIVAR_TYPE_MAPPING:
-                    # Contadores por tipo
-                    counts = {subcategory: 0 for subcategory in self.scraper.CULTIVAR_TYPE_MAPPING[category].keys()}
-                    
-                    # Conta as ocorrências de cada tipo
-                    for cultivar in cultivares:
-                        for subcategory, cultivar_list in self.scraper.CULTIVAR_TYPE_MAPPING[category].items():
-                            if any(c.lower() in cultivar.lower() for c in cultivar_list):
-                                counts[subcategory] += 1
-                    
-                    # Retorna o tipo com mais ocorrências, se houver algum
-                    if counts:
-                        max_count = max(counts.values())
-                        if max_count > 0:
-                            most_common = max(counts.items(), key=lambda x: x[1])[0]
-                            logger.debug(f"Most common subcategory detected (traditional): {most_common}")
-                            return most_common
-        
-        # Para exportação e importação, verificamos com base no nome do arquivo de fallback
-        elif category in ["exportacao", "importacao"]:
-            # Vamos verificar pelo padrão de colunas nos dados
-            column_names = []
-            for item in data:
-                column_names.extend(item.keys())
-            
-            column_names = list(set(column_names))  # Remove duplicatas
-            
-            # Verificamos países/destinos que indicam exportação
-            if "Países" in column_names and category == "exportacao":
-                # Tenta identificar por caracteres distintos dos valores
-                # Verifica tipos específicos de produtos nos dados
-                all_text = ""
-                for item in data:
-                    all_text += str(item)
-                
-                # Verifica palavras-chave para vinhos
-                if any(keyword in all_text.lower() for keyword in ["vinho", "vinhos", "cabernet", "merlot", "chardonnay"]):
-                    return "vinhos"
-                
-                # Verifica palavras-chave para espumantes
-                if any(keyword in all_text.lower() for keyword in ["espumante", "espumantes", "champagne", "moscatel"]):
-                    return "espumantes"
-                
-                # Verifica palavras-chave para sucos
-                if any(keyword in all_text.lower() for keyword in ["suco", "sucos", "concentrado"]):
-                    return "sucos"
-                
-                # Verifica palavras-chave para uvas
-                if any(keyword in all_text.lower() for keyword in ["uva", "uvas", "fresca", "frescas", "mesa"]):
-                    return "uvas"
-                
-                # Se não encontrou nenhum padrão específico, verifica o padrão de export. mais comum
-                return "vinhos"  # Fallback para a subcategoria mais comum
-        
-        # Para outros tipos de categoria, podemos implementar lógicas específicas no futuro
-        logger.debug(f"No subcategory detection rule matched for category: {category}")
-        return None
-    
-    def clean_unnecessary_headers(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def fetch_data(self, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
-        Remove cabeçalhos desnecessários e redundantes dos dados.
+        Fetch data from local fallback files
         
         Args:
-            data: Lista de registros para limpar
+            params: Parameters for data fetching
             
         Returns:
-            Lista de registros limpa
+            Dictionary with data and metadata or None if fetching failed
         """
-        if not data:
-            return data
+        category = params['category']
+        subcategory = params.get('subcategory')
         
-        cleaned_data = []
-        
-        # Chaves a serem filtradas
-        keys_to_filter = [
-            "Dados da Vitivinicultura Loiva Maria Ribeiro de Mello Carlos Alberto Ely Machado",
-            "Dados da Vitivinicultura",
-        ]
-        
-        # Identificadores de linhas de cabeçalho
-        header_identifiers = [
-            {"Cultivar": "Cultivar", "Quantidade (Kg)": "Quantidade (Kg)"},
-            {"Países": "Países", "Quantidade (Kg)": "Quantidade (Kg)"},
-        ]
-        
-        # Filtra os registros
-        for item in data:
-            # Pula itens que são cabeçalhos redundantes
-            if any(all(item.get(k) == v for k, v in header_id.items()) for header_id in header_identifiers):
-                continue
-            
-            # Remove chaves desnecessárias
-            cleaned_item = {k: v for k, v in item.items() if k not in keys_to_filter}
-            
-            # Adiciona apenas se o item tiver algum conteúdo após a limpeza
-            if cleaned_item:
-                cleaned_data.append(cleaned_item)
-        
-        return cleaned_data
-    
-    def _load_fallback_data(self, category: str, subcategory: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Load fallback data from local CSV files with improved handling of different
-        CSV formats and subcategories
-        
-        Args:
-            category: Category to load data for
-            subcategory: Optional subcategory
-            
-        Returns:
-            Dictionary with data and metadata, or None if fallback fails
-        """
         if category not in self.fallback_files:
             logger.error(f"No fallback files defined for category: {category}")
             return None
@@ -685,8 +216,57 @@ class ViniDataService:
         except Exception as e:
             logger.error(f"Error loading fallback file {file_path}: {str(e)}")
             return None
+
+
+class DataProcessor:
+    """
+    Procesador de dados para limpeza, filtragem e transformação
+    """
+    @staticmethod
+    def clean_unnecessary_headers(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Remove cabeçalhos desnecessários e redundantes dos dados.
+        
+        Args:
+            data: Lista de registros para limpar
+            
+        Returns:
+            Lista de registros limpa
+        """
+        if not data:
+            return data
+        
+        cleaned_data = []
+        
+        # Chaves a serem filtradas
+        keys_to_filter = [
+            "Dados da Vitivinicultura Loiva Maria Ribeiro de Mello Carlos Alberto Ely Machado",
+            "Dados da Vitivinicultura",
+        ]
+        
+        # Identificadores de linhas de cabeçalho
+        header_identifiers = [
+            {"Cultivar": "Cultivar", "Quantidade (Kg)": "Quantidade (Kg)"},
+            {"Países": "Países", "Quantidade (Kg)": "Quantidade (Kg)"},
+        ]
+        
+        # Filtra os registros
+        for item in data:
+            # Pula itens que são cabeçalhos redundantes
+            if any(all(item.get(k) == v for k, v in header_id.items()) for header_id in header_identifiers):
+                continue
+            
+            # Remove chaves desnecessárias
+            cleaned_item = {k: v for k, v in item.items() if k not in keys_to_filter}
+            
+            # Adiciona apenas se o item tiver algum conteúdo após a limpeza
+            if cleaned_item:
+                cleaned_data.append(cleaned_item)
+        
+        return cleaned_data
     
-    def _sanitize_for_json(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    @staticmethod
+    def sanitize_for_json(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Sanitize data to ensure it can be JSON serialized by replacing non-JSON-compliant values
         and cleaning up the data structure
@@ -701,7 +281,7 @@ class ViniDataService:
             return []
         
         # First, clean up the structure using the export cleaning logic
-        cleaned_data = self._clean_data_for_export(data)
+        cleaned_data = DataProcessor.clean_data_for_export(data)
         sanitized_data = []
         
         def clean_value(value):
@@ -763,164 +343,8 @@ class ViniDataService:
             
         return sanitized_data
     
-    def export_to_parquet(self, data: List[Dict[str, Any]], file_path: str) -> bool:
-        """
-        Export data to Parquet format for ML pipeline integration with improved structure
-        
-        Args:
-            data: Data to export
-            file_path: Path to save the Parquet file
-            
-        Returns:
-            Success status
-        """
-        try:
-            if not data:
-                logger.warning("No data to export to Parquet")
-                return False
-                
-            # Clean and normalize the data before export
-            cleaned_data = self._clean_data_for_export(data)
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(cleaned_data)
-            
-            # Remove rows that are just navigation elements or metadata
-            if 'Produto' in df.columns:
-                df = df[~df['Produto'].isin(['DOWNLOAD', 'TOPO', '« ‹ › »'])]
-                
-            # Remove duplicate rows
-            if len(df) > 0:
-                content_cols = [col for col in df.columns if col not in ['source', 'timestamp', 'metadata']]
-                if content_cols:
-                    df = df.drop_duplicates(subset=content_cols, keep='first')
-            
-            # Convert string numbers to actual numbers for better storage efficiency
-            for col in df.columns:
-                if df[col].dtype == 'object':  # If column is string/object type
-                    # Try to convert to numeric, but only if the majority can be converted
-                    try:
-                        # Replace commas with dots for decimal conversion
-                        temp_col = df[col].str.replace(',', '.', regex=False)
-                        converted = pd.to_numeric(temp_col, errors='coerce')
-                        # If most values convert successfully, apply the conversion
-                        if converted.notna().sum() > 0.5 * df.shape[0]:
-                            df[col] = converted
-                    except:
-                        pass
-            
-            # Export to Parquet with compression
-            df.to_parquet(file_path, index=False, compression='snappy')
-            logger.info(f"Successfully exported {len(df)} rows to {file_path}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error exporting to Parquet: {str(e)}")
-            return False
-    
-    def export_to_csv(self, data: List[Dict[str, Any]], file_path: str) -> bool:
-        """
-        Export data to CSV format with improved structure and cleaning
-        
-        Args:
-            data: Data to export
-            file_path: Path to save the CSV file
-            
-        Returns:
-            Success status
-        """
-        try:
-            if not data:
-                logger.warning("No data to export to CSV")
-                return False
-                
-            # Clean and normalize the data before export
-            cleaned_data = self._clean_data_for_export(data)
-            
-            # Convert to DataFrame and export
-            df = pd.DataFrame(cleaned_data)
-            
-            # Remove rows that are just navigation elements or metadata
-            if 'Produto' in df.columns:
-                df = df[~df['Produto'].isin(['DOWNLOAD', 'TOPO', '« ‹ › »'])]
-                
-            # Remove duplicate rows by checking all values except metadata columns
-            if len(df) > 0:
-                content_cols = [col for col in df.columns if col not in ['source', 'timestamp', 'metadata']]
-                if content_cols:
-                    df = df.drop_duplicates(subset=content_cols, keep='first')
-            
-            # Export to CSV
-            df.to_csv(file_path, index=False, encoding='utf-8-sig')  # Use utf-8-sig to ensure proper encoding with BOM
-            logger.info(f"Successfully exported {len(df)} rows to {file_path}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error exporting to CSV: {str(e)}")
-            return False
-            
-    def _clean_data_for_export(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Clean and structure data for export formats
-        
-        Args:
-            data: Original data to clean
-            
-        Returns:
-            Cleaned data ready for export
-        """
-        cleaned_data = []
-        
-        # First pass: identify important columns and normalize data
-        all_keys = set()
-        for item in data:
-            all_keys.update(item.keys())
-            
-        # Remove unnecessary columns
-        columns_to_remove = [
-            col for col in all_keys 
-            if col.startswith('column_') or 
-               'copyright' in col.lower() or 
-               'livramento' in col.lower() or
-               'embrapa' in col.lower()
-        ]
-        
-        # Process each data item
-        for item in data:
-            # Skip items that appear to be metadata or navigation
-            if any(nav in str(item.values()) for nav in ['DOWNLOAD', 'TOPO', '« ‹ › »']):
-                continue
-                
-            # Skip mostly empty rows
-            if sum(1 for v in item.values() if v and str(v).strip()) <= 1:
-                continue
-                
-            # Create a new clean item
-            clean_item = {}
-            
-            # Copy values, except those in columns_to_remove
-            for k, v in item.items():
-                if k not in columns_to_remove:
-                    # Clean string values
-                    if isinstance(v, str):
-                        # Remove long descriptive texts that appear to be metadata
-                        if len(v) > 200 and ('banco de dados' in v.lower() or 'download' in v.lower()):
-                            continue
-                        # Clean up the value
-                        clean_v = v.strip()
-                    else:
-                        clean_v = v
-                        
-                    clean_item[k] = clean_v
-            
-            # Only add items that have useful data
-            if clean_item and len(clean_item) > 1:
-                cleaned_data.append(clean_item)
-                
-        return cleaned_data
-    
-    def _filter_data(
-        self,
+    @staticmethod
+    def filter_data(
         data: List[Dict[str, Any]],
         start_year: Optional[int] = None,
         end_year: Optional[int] = None,
@@ -1050,7 +474,758 @@ class ViniDataService:
             filtered_data = dest_filtered
             
         return filtered_data
+    
+    @staticmethod
+    def clean_data_for_export(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Clean and structure data for export formats
+        
+        Args:
+            data: Original data to clean
+            
+        Returns:
+            Cleaned data ready for export
+        """
+        cleaned_data = []
+        
+        # First pass: identify important columns and normalize data
+        all_keys = set()
+        for item in data:
+            all_keys.update(item.keys())
+            
+        # Remove unnecessary columns
+        columns_to_remove = [
+            col for col in all_keys 
+            if col.startswith('column_') or 
+               'copyright' in col.lower() or 
+               'livramento' in col.lower() or
+               'embrapa' in col.lower()
+        ]
+        
+        # Process each data item
+        for item in data:
+            # Skip items that appear to be metadata or navigation
+            if any(nav in str(item.values()) for nav in ['DOWNLOAD', 'TOPO', '« ‹ › »']):
+                continue
+                
+            # Skip mostly empty rows
+            if sum(1 for v in item.values() if v and str(v).strip()) <= 1:
+                continue
+                
+            # Create a new clean item
+            clean_item = {}
+            
+            # Copy values, except those in columns_to_remove
+            for k, v in item.items():
+                if k not in columns_to_remove:
+                    # Clean string values
+                    if isinstance(v, str):
+                        # Remove long descriptive texts that appear to be metadata
+                        if len(v) > 200 and ('banco de dados' in v.lower() or 'download' in v.lower()):
+                            continue
+                        # Clean up the value
+                        clean_v = v.strip()
+                    else:
+                        clean_v = v
+                        
+                    clean_item[k] = clean_v
+            
+            # Only add items that have useful data
+            if clean_item and len(clean_item) > 1:
+                cleaned_data.append(clean_item)
+                
+        return cleaned_data
 
 
-# Create a global instance of the service
-vini_data_service = ViniDataService()
+class DataExporter:
+    """
+    Classe para exportação de dados em diferentes formatos
+    """
+    @staticmethod
+    def export_to_parquet(data: List[Dict[str, Any]], file_path: str) -> bool:
+        """
+        Export data to Parquet format for ML pipeline integration with improved structure
+        
+        Args:
+            data: Data to export
+            file_path: Path to save the Parquet file
+            
+        Returns:
+            Success status
+        """
+        try:
+            if not data:
+                logger.warning("No data to export to Parquet")
+                return False
+                
+            # Clean and normalize the data before export
+            cleaned_data = DataProcessor.clean_data_for_export(data)
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(cleaned_data)
+            
+            # Remove rows that are just navigation elements or metadata
+            if 'Produto' in df.columns:
+                df = df[~df['Produto'].isin(['DOWNLOAD', 'TOPO', '« ‹ › »'])]
+                
+            # Remove duplicate rows
+            if len(df) > 0:
+                content_cols = [col for col in df.columns if col not in ['source', 'timestamp', 'metadata']]
+                if content_cols:
+                    df = df.drop_duplicates(subset=content_cols, keep='first')
+            
+            # Convert string numbers to actual numbers for better storage efficiency
+            for col in df.columns:
+                if df[col].dtype == 'object':  # If column is string/object type
+                    # Try to convert to numeric, but only if the majority can be converted
+                    try:
+                        # Replace commas with dots for decimal conversion
+                        temp_col = df[col].str.replace(',', '.', regex=False)
+                        converted = pd.to_numeric(temp_col, errors='coerce')
+                        # If most values convert successfully, apply the conversion
+                        if converted.notna().sum() > 0.5 * df.shape[0]:
+                            df[col] = converted
+                    except:
+                        pass
+            
+            # Export to Parquet with compression
+            df.to_parquet(file_path, index=False, compression='snappy')
+            logger.info(f"Successfully exported {len(df)} rows to {file_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error exporting to Parquet: {str(e)}")
+            return False
+    
+    @staticmethod
+    def export_to_csv(data: List[Dict[str, Any]], file_path: str) -> bool:
+        """
+        Export data to CSV format with improved structure and cleaning
+        
+        Args:
+            data: Data to export
+            file_path: Path to save the CSV file
+            
+        Returns:
+            Success status
+        """
+        try:
+            if not data:
+                logger.warning("No data to export to CSV")
+                return False
+                
+            # Clean and normalize the data before export
+            cleaned_data = DataProcessor.clean_data_for_export(data)
+            
+            # Convert to DataFrame and export
+            df = pd.DataFrame(cleaned_data)
+            
+            # Remove rows that are just navigation elements or metadata
+            if 'Produto' in df.columns:
+                df = df[~df['Produto'].isin(['DOWNLOAD', 'TOPO', '« ‹ › »'])]
+                
+            # Remove duplicate rows by checking all values except metadata columns
+            if len(df) > 0:
+                content_cols = [col for col in df.columns if col not in ['source', 'timestamp', 'metadata']]
+                if content_cols:
+                    df = df.drop_duplicates(subset=content_cols, keep='first')
+            
+            # Export to CSV
+            df.to_csv(file_path, index=False, encoding='utf-8-sig')  # Use utf-8-sig to ensure proper encoding with BOM
+            logger.info(f"Successfully exported {len(df)} rows to {file_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error exporting to CSV: {str(e)}")
+            return False
+
+
+class DataRecoveryManager:
+    """
+    Gerencia os processos de recuperação de dados quando a extração falha
+    """
+    @staticmethod
+    def validate_scraped_data(scraped_data: ScrapedData) -> bool:
+        """
+        Validate that the scraped data has the expected structure
+        
+        Args:
+            scraped_data: The scraped data to validate
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        # Check if data is a list as expected
+        if not isinstance(scraped_data.data, list):
+            return False
+            
+        # Empty list is valid but suspicious for most queries
+        if len(scraped_data.data) == 0:
+            logger.warning("Scraped data returned an empty list")
+            return True
+            
+        # Check that each item is a dictionary
+        if not all(isinstance(item, dict) for item in scraped_data.data):
+            return False
+            
+        # Check that we have reasonable keys in each dictionary
+        # At minimum each record should have some key besides 'ano'
+        has_valid_keys = False
+        for item in scraped_data.data[:10]:  # Check first 10 items
+            if len(item.keys()) > 1:
+                has_valid_keys = True
+                break
+                
+        return has_valid_keys
+    
+    @staticmethod
+    def attempt_data_recovery(scraped_data: ScrapedData) -> Optional[ScrapedData]:
+        """
+        Attempt to recover data from potentially malformed scraped content
+        
+        Args:
+            scraped_data: The scraped data to recover
+            
+        Returns:
+            Recovered ScrapedData or None if recovery failed
+        """
+        # First, check if this is raw HTML rather than parsed data
+        if hasattr(scraped_data, 'raw_html'):
+            logger.info("Attempting to parse raw HTML directly")
+            try:
+                html_content = scraped_data.raw_html
+                recovered_data = DataRecoveryManager.parse_raw_html(html_content, scraped_data.source_url)
+                
+                if recovered_data and len(recovered_data) > 0:
+                    # Return recovered data in the expected format
+                    return ScrapedData(
+                        source_url=scraped_data.source_url,
+                        timestamp=scraped_data.timestamp,
+                        data=recovered_data,
+                        metadata=scraped_data.metadata
+                    )
+            except Exception as e:
+                logger.error(f"Recovery parsing failed: {str(e)}")
+        
+        return None
+    
+    @staticmethod
+    def parse_raw_html(html_content: str, source_url: str) -> List[Dict[str, Any]]:
+        """
+        Parse raw HTML from failed scraping attempts
+        
+        Args:
+            html_content: Raw HTML content
+            source_url: The source URL
+            
+        Returns:
+            List of dictionaries extracted from the HTML
+        """
+        soup = BeautifulSoup(html_content, 'html.parser')
+        results = []
+        
+        # Extract year from URL if present
+        year_match = re.search(r'ano=(\d{4})', source_url)
+        year = int(year_match.group(1)) if year_match else None
+        
+        # Find tables
+        tables = soup.find_all('table')
+        logger.info(f"Found {len(tables)} tables in HTML")
+        
+        for table in tables:
+            # Extract headers
+            header_row = table.find('tr')
+            if not header_row:
+                continue
+                
+            headers = []
+            for th in header_row.find_all(['th', 'td']):
+                header_text = th.text.strip()
+                if header_text:
+                    headers.append(header_text)
+                else:
+                    headers.append(f"column_{len(headers)}")
+            
+            if not headers:
+                continue
+                
+            # Extract data rows
+            for row in table.find_all('tr')[1:]:
+                cells = row.find_all(['td', 'th'])
+                
+                if len(cells) == 0:
+                    continue
+                    
+                # Create record
+                record = {}
+                for i, cell in enumerate(cells):
+                    if i < len(headers):
+                        key = headers[i]
+                        value = cell.text.strip()
+                        record[key] = value
+                
+                # Add year if we found it
+                if year and 'ano' not in record:
+                    record['ano'] = year
+                    
+                if record:
+                    results.append(record)
+        
+        return results
+
+
+class SubcategoryDetector:
+    """
+    Responsável por detectar e gerenciar subcategorias
+    """
+    def __init__(self, scraper: AdaptiveScraper):
+        self.scraper = scraper
+        self.cultivar_mapping = {
+            'processamento': {
+                'viniferas': ['cabernet', 'merlot', 'chardonnay', 'moscato', 'sauvignon', 'pinot', 'riesling', 'syrah'],
+                'americanas': ['isabella', 'niagara', 'concord', 'bordô', 'bordo', 'jacquez'],
+                'mesa': ['italia', 'itália', 'rubi', 'benitaka', 'brasil']
+            }
+        }
+        
+    def map_product_type_to_subcategory(self, category: str, product_type: str) -> Optional[str]:
+        """
+        Map product type to appropriate subcategory based on the category
+        
+        Args:
+            category: The data category
+            product_type: The product type
+            
+        Returns:
+            Mapped subcategory name or None
+        """
+        mapping = {
+            'processamento': {
+                'vinifera': 'viniferas',
+                'viniferas': 'viniferas',
+                'americana': 'americanas',
+                'americanas': 'americanas',
+                'mesa': 'mesa',
+            },
+            'importacao': {
+                'vinho': 'vinhos',
+                'vinhos': 'vinhos',
+                'suco': 'sucos',
+                'sucos': 'sucos',
+                'espumante': 'espumantes',
+                'espumantes': 'espumantes',
+                'passa': 'passas',
+                'passas': 'passas',
+                'fresca': 'frescas',
+                'frescas': 'frescas',
+                'uvas frescas': 'frescas',
+            },
+            'exportacao': {
+                'vinho': 'vinhos',
+                'vinhos': 'vinhos',
+                'suco': 'sucos',
+                'sucos': 'sucos',
+                'espumante': 'espumantes',
+                'espumantes': 'espumantes',
+                'uva': 'uvas',
+                'uvas': 'uvas',
+            }
+        }
+        
+        if category in mapping and product_type.lower() in mapping[category]:
+            return mapping[category][product_type.lower()]
+        
+        return None
+        
+    def detect_subcategory_from_data(self, category: str, data: List[Dict[str, Any]]) -> Optional[str]:
+        """
+        Detecta automaticamente a subcategoria com base no conteúdo dos dados.
+        
+        Args:
+            category: Categoria principal dos dados ('processamento', 'importacao', 'exportacao', etc.)
+            data: Lista de registros para análise
+            
+        Returns:
+            Subcategoria detectada ou None se não foi possível detectar
+        """
+        if not data or len(data) < 1:
+            return None
+            
+        # Logging para debug
+        logger.debug(f"Detecting subcategory for category: {category} with {len(data)} records")
+        
+        # Para processamento, verificamos o tipo de cultivar
+        if category == "processamento":
+            # Obtenha todas as cultivares nos dados
+            cultivares = []
+            for item in data:
+                # Checa se o item tem uma chave 'cultivar' ou 'Cultivar', em qualquer variação de capitalização
+                cultivar_keys = ['cultivar', 'Cultivar', 'CULTIVAR']
+                cultivar_value = None
+                
+                for key in cultivar_keys:
+                    # Procura a chave exata
+                    if key in item and item[key]:
+                        cultivar_value = item[key]
+                        break
+                    
+                    # Procura chaves case-insensitive se não encontrou a chave exata
+                    for k in item.keys():
+                        if k.lower() == key.lower() and item[k]:
+                            cultivar_value = item[k]
+                            break
+                
+                if cultivar_value:
+                    cultivares.append(cultivar_value)
+                    logger.debug(f"Found cultivar: {cultivar_value}")
+            
+            if not cultivares:
+                logger.warning("No cultivar data found for subcategory detection")
+                return None
+                
+            # Verifica se o scraper está usando SQLite
+            if hasattr(self.scraper, 'use_sqlite') and self.scraper.use_sqlite:
+                logger.debug("Using SQLite classifier for subcategory detection")
+                # Se estiver usando SQLite, utilize o método classify_cultivar do AdaptiveScraper
+                subcategory_counts = {}
+                
+                # Garante que temos ao menos uma cultivar para classificar
+                if len(cultivares) > 0:
+                    for cultivar in cultivares:
+                        # Chama o método classify_cultivar diretamente
+                        subcategory = self.scraper.classify_cultivar(cultivar, category)
+                        
+                        # Debug para verificar o resultado da classificação
+                        logger.debug(f"SQLite classification for '{cultivar}': {subcategory}")
+                        
+                        if subcategory:
+                            subcategory_counts[subcategory] = subcategory_counts.get(subcategory, 0) + 1
+                
+                    # Retorna a subcategoria com mais ocorrências, se houver alguma
+                    if subcategory_counts:
+                        most_common = max(subcategory_counts.items(), key=lambda x: x[1])[0]
+                        logger.debug(f"Most common subcategory detected: {most_common}")
+                        return most_common
+                    else:
+                        logger.warning("No subcategory detected after classification")
+            else:
+                # Usa o método tradicional baseado em mapeamento de cultivares
+                logger.debug("Using traditional mapping for subcategory detection")
+                # Contadores por tipo
+                counts = {subcategory: 0 for subcategory in self.cultivar_mapping.get(category, {}).keys()}
+                
+                # Conta as ocorrências de cada tipo
+                for cultivar in cultivares:
+                    for subcategory, cultivar_list in self.cultivar_mapping.get(category, {}).items():
+                        if any(c.lower() in cultivar.lower() for c in cultivar_list):
+                            counts[subcategory] = counts.get(subcategory, 0) + 1
+                
+                # Retorna o tipo com mais ocorrências, se houver algum
+                if counts:
+                    max_count = max(counts.values())
+                    if max_count > 0:
+                        most_common = max(counts.items(), key=lambda x: x[1])[0]
+                        logger.debug(f"Most common subcategory detected (traditional): {most_common}")
+                        return most_common
+        
+        # Para exportação e importação, verificamos com base no nome do arquivo de fallback
+        elif category in ["exportacao", "importacao"]:
+            # Vamos verificar pelo padrão de colunas nos dados
+            column_names = []
+            for item in data:
+                column_names.extend(item.keys())
+            
+            column_names = list(set(column_names))  # Remove duplicatas
+            
+            # Verificamos países/destinos que indicam exportação
+            if "Países" in column_names and category == "exportacao":
+                # Tenta identificar por caracteres distintos dos valores
+                # Verifica tipos específicos de produtos nos dados
+                all_text = ""
+                for item in data:
+                    all_text += str(item)
+                
+                # Verifica palavras-chave para vinhos
+                if any(keyword in all_text.lower() for keyword in ["vinho", "vinhos", "cabernet", "merlot", "chardonnay"]):
+                    return "vinhos"
+                
+                # Verifica palavras-chave para espumantes
+                if any(keyword in all_text.lower() for keyword in ["espumante", "espumantes", "champagne", "moscatel"]):
+                    return "espumantes"
+                
+                # Verifica palavras-chave para sucos
+                if any(keyword in all_text.lower() for keyword in ["suco", "sucos", "concentrado"]):
+                    return "sucos"
+                
+                # Verifica palavras-chave para uvas
+                if any(keyword in all_text.lower() for keyword in ["uva", "uvas", "fresca", "frescas", "mesa"]):
+                    return "uvas"
+                
+                # Se não encontrou nenhum padrão específico, verifica o padrão de export. mais comum
+                return "vinhos"  # Fallback para a subcategoria mais comum
+        
+        # Para outros tipos de categoria, podemos implementar lógicas específicas no futuro
+        logger.debug(f"No subcategory detection rule matched for category: {category}")
+        return None
+
+
+class ViniDataService:
+    """
+    Service for retrieving and transforming data from VitiBrasil
+    with caching and fallback mechanisms
+    """
+    
+    def __init__(self, use_sqlite: bool = True, db_path: Optional[str] = None):
+        # Inicializa o scraper com suporte explícito a SQLite
+        self.scraper = AdaptiveScraper(
+            base_url=settings.VITIBRASIL_BASE_URL, 
+            use_sqlite=use_sqlite,
+            db_path=db_path
+        )
+        
+        # Inicializa componentes auxiliares
+        self.subcategory_detector = SubcategoryDetector(self.scraper)
+        
+        # Corrigindo o caminho para app/data ao invés de criar outra pasta data
+        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.data_dir = os.path.join(base_path, 'app', 'data')
+        
+        # Define os arquivos de fallback
+        self.fallback_files = {
+             'producao': {
+             'default': os.path.join(self.data_dir, 'Producao.csv'),
+             'vinho_mesa': os.path.join(self.data_dir, 'Producao_VinhoMesa.csv'),
+             'espumantes': os.path.join(self.data_dir, 'Producao_Espumantes.csv')
+         },
+            'processamento': {
+                'default': os.path.join(self.data_dir, 'ProcessaViniferas.csv'),
+                'viniferas': os.path.join(self.data_dir, 'ProcessaViniferas.csv'),
+                'americanas': os.path.join(self.data_dir, 'ProcessaAmericanas.csv'),
+                'mesa': os.path.join(self.data_dir, 'ProcessaMesa.csv'),
+                'semclassificacao': os.path.join(self.data_dir, 'ProcessaSemclass.csv'),
+            },
+            'comercializacao': os.path.join(self.data_dir, 'Comercio.csv'),
+            'importacao': {
+                'default': os.path.join(self.data_dir, 'ImpVinhos.csv'),
+                'vinhos': os.path.join(self.data_dir, 'ImpVinhos.csv'),
+                'sucos': os.path.join(self.data_dir, 'ImpSuco.csv'),
+                'espumantes': os.path.join(self.data_dir, 'ImpEspumantes.csv'),
+                'passas': os.path.join(self.data_dir, 'ImpPassas.csv'),
+                'frescas': os.path.join(self.data_dir, 'ImpFrescas.csv'),
+            },
+            'exportacao': {
+                'default': os.path.join(self.data_dir, 'ExpVinho.csv'),
+                'vinhos': os.path.join(self.data_dir, 'ExpVinho.csv'),
+                'sucos': os.path.join(self.data_dir, 'ExpSuco.csv'),
+                'espumantes': os.path.join(self.data_dir, 'ExpEspumantes.csv'),
+                'uvas': os.path.join(self.data_dir, 'ExpUva.csv'),
+            }
+        }
+        
+        # Inicializa as estratégias de coleta de dados
+        self.online_strategy = OnlineDataFetchStrategy(self.scraper)
+        self.fallback_strategy = FallbackDataFetchStrategy(self.fallback_files)
+    
+    def get_data(
+        self,
+        category: str,
+        start_year: int = 1970,
+        end_year: int = 2025,
+        region: Optional[str] = None,
+        product_type: Optional[str] = None,
+        subcategory: Optional[str] = None,
+        channel: Optional[str] = None,
+        origin: Optional[str] = None,
+        destination: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get data with resilient caching and filtering
+        
+        Args:
+            category: Data category (producao, processamento, comercializacao, etc.)
+            start_year: First year to include
+            end_year: Last year to include
+            region: Optional region filter
+            product_type: Optional product type filter
+            subcategory: Optional subcategory name
+            channel: Optional channel filter (for comercializacao)
+            origin: Optional origin country/region (for imports)
+            destination: Optional destination country/region (for exports)
+            
+        Returns:
+            Dictionary with data and metadata
+        """
+        # Map subcategory based on category and product_type if not explicitly provided
+        if not subcategory and product_type:
+            subcategory = self.subcategory_detector.map_product_type_to_subcategory(category, product_type)
+        
+        # Create a unique cache key based on all filters
+        cache_key = f"{category}"
+        if subcategory:
+            cache_key += f"_{subcategory}"
+        cache_key += f"_{start_year}_{end_year}"
+        
+        if any([region, product_type, channel, origin, destination]):
+            filter_key = "_filters_"
+            if region:
+                filter_key += f"r{region}"
+            if product_type:
+                filter_key += f"p{product_type}"
+            if channel:
+                filter_key += f"c{channel}"
+            if origin:
+                filter_key += f"o{origin}"
+            if destination:
+                filter_key += f"d{destination}"
+            cache_key += filter_key
+
+        # Attempt to get cached data first
+        cached_data = data_cache.get(cache_key)
+        
+        # Preparar parâmetros para as estratégias
+        fetch_params = {
+            'category': category,
+            'subcategory': subcategory,
+            'start_year': start_year,
+            'end_year': end_year,
+            'region': region,
+            'product_type': product_type,
+            'origin': origin,
+            'destination': destination
+        }
+        
+        # Define data fetching function for cache
+        def fetch_data():
+            logger.info(f"Fetching fresh data for category: {category}, subcategory: {subcategory or 'all'}")
+            try:
+                # Use the online strategy to fetch data
+                result = self.online_strategy.fetch_data(fetch_params)
+                
+                # If we have data, validate and possibly recover it
+                if result:
+                    scraped_data = ScrapedData(
+                        source_url=result.get('source_url', ''),
+                        timestamp=result.get('timestamp', 0),
+                        data=result.get('data', []),
+                        metadata=result.get('metadata', {})
+                    )
+                    
+                    # Validate data structure
+                    if not DataRecoveryManager.validate_scraped_data(scraped_data):
+                        logger.warning(f"Invalid data structure detected for {category}, attempting recovery")
+                        recovered_data = DataRecoveryManager.attempt_data_recovery(scraped_data)
+                        if recovered_data:
+                            return recovered_data.dict()
+                        # If recovery fails, raise exception to trigger fallback
+                        raise ValueError("Data validation failed and recovery was unsuccessful")
+                    
+                    return result
+                
+                return None
+            
+            except Exception as e:
+                logger.error(f"Error scraping data: {str(e)}")
+                # Return a failed indicator to trigger fallback
+                return None
+        
+        # Try to get from cache, fallback to fresh data
+        result = cached_data or fetch_data()
+        
+        # All attempts failed, try local CSV fallback
+        if not result:
+            logger.warning(f"Online data retrieval failed for {category}, trying fallback files")
+            result = self.fallback_strategy.fetch_data(fetch_params)
+            
+            # If fallback with subcategory failed, try the default fallback
+            if not result and subcategory:
+                logger.warning(f"Fallback with subcategory {subcategory} failed, trying default fallback")
+                fetch_params['subcategory'] = None
+                result = self.fallback_strategy.fetch_data(fetch_params)
+        
+        # If still no data, return an error
+        if not result:
+            logger.error(f"All data retrieval methods failed for {category}")
+            return {"error": "Data retrieval failed", "data": [], "fallback_used": True}
+        
+        # Store origin of the data
+        data_source = "cache" if cached_data else ("online" if not result.get("fallback_used") else "fallback_file")
+        
+        # Apply filters if necessary
+        filtered_data = DataProcessor.filter_data(
+            result.get("data", []), 
+            start_year=start_year,
+            end_year=end_year,
+            region=region, 
+            product_type=product_type,
+            channel=channel,
+            origin=origin,
+            destination=destination
+        )
+        
+        # Tenta detectar a subcategoria automaticamente se ela não foi especificada
+        # e os dados não têm uma subcategoria definida
+        if not subcategory and not result.get("metadata", {}).get("subcategory"):
+            detected_subcategory = self.subcategory_detector.detect_subcategory_from_data(category, filtered_data)
+            
+            # Se detectamos uma subcategoria, atualiza os metadados
+            if detected_subcategory:
+                logger.info(f"Detectada subcategoria automaticamente: {detected_subcategory} para {category}")
+                if "metadata" in result:
+                    result["metadata"]["subcategory"] = detected_subcategory
+                    # Adiciona um campo para indicar que a subcategoria foi detectada automaticamente
+                    result["metadata"]["subcategory_detection"] = "automatic"
+        
+        # Sanitize data for JSON serialization
+        sanitized_data = DataProcessor.sanitize_for_json(filtered_data)
+        
+        # Armazena no cache se foi obtido online e não estava em cache
+        if data_source == "online" and not cached_data:
+            try:
+                # Adiciona os dados processados ao cache
+                data_cache.set(cache_key, result)
+                logger.info(f"Data stored in cache with key: {cache_key}")
+            except Exception as e:
+                logger.warning(f"Failed to store data in cache: {str(e)}")
+        
+        return {
+            "metadata": result.get("metadata", {}),
+            "data": sanitized_data,
+            "from_cache": cached_data is not None,
+            "data_source": data_source,
+            "total_records": len(sanitized_data)
+        }
+        
+    def export_to_parquet(self, data: List[Dict[str, Any]], file_path: str) -> bool:
+        """Proxy para o método estático em DataExporter"""
+        return DataExporter.export_to_parquet(data, file_path)
+    
+    def export_to_csv(self, data: List[Dict[str, Any]], file_path: str) -> bool:
+        """Proxy para o método estático em DataExporter"""
+        return DataExporter.export_to_csv(data, file_path)
+    
+    def clean_unnecessary_headers(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Proxy para o método estático em DataProcessor"""
+        return DataProcessor.clean_unnecessary_headers(data)
+        
+    def close(self):
+        """
+        Close connections and release resources
+        """
+        try:
+            if hasattr(self, 'scraper'):
+                self.scraper.close()
+                logger.info("Closed AdaptiveScraper connections")
+        except Exception as e:
+            logger.error(f"Error closing connections: {str(e)}")
+    
+    def __enter__(self):
+        """Support for context manager protocol"""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensure resources are cleaned up when used as context manager"""
+        self.close()
+
+
+# Create a global instance of the service with SQLite support enabled by default
+vini_data_service = ViniDataService(use_sqlite=True)
